@@ -1,53 +1,64 @@
 import os
-from deepsudoku import REPO_PATH, DIFFICULTIES
+from deepsudoku import REPO_PATH, DIFFICULTIES, generate
+from itertools import product
+import tqdm
 
 os.chdir(REPO_PATH)
 
 
 # define the number of CPUs to use
-from multiprocessing import Pool
-from deepsudoku.generate import generate
-import numpy as np
-import tqdm
-from hashlib import sha256
-import json
 
-STEP_SIZE = 5000
-EXAMPLES_PER_DIFFICULTY = int(1e6/ 2)
-NUM_CPUS = 8
-N_STEPS = EXAMPLES_PER_DIFFICULTY // STEP_SIZE
-N_STEPS
+NUM_CPUS = 6
+WANTED = {
+    "easy" : 100000,
+    "medium" : 100000,
+    "extreme" : 100000,
+    "hard" : 100000,
+    "insane" : 500000,
+}
 
-def generate_and_save_data(args):
+
+SETTINGS = list(product(DIFFICULTIES, [True, False]))
+
+
+def generate_and_save_data(setting, number):  
     
-    difficulty, number = args
+    difficulty, density = setting
     
-    dir_path = os.path.join(REPO_PATH, "raw_data", difficulty)
+    density_name = "considering_density" if density else "without_density"
+    
+    dir_path = os.path.join(REPO_PATH, "data", f"{difficulty}_{density_name}")
     os.makedirs(dir_path, exist_ok= True)
     
-    input_path = os.path.join(dir_path, f"inputs_{number:05d}.npy")
+    result_path = os.path.join(dir_path, f"chunk_{number}.txt")
     
-    if os.path.exists(input_path):
+    if os.path.exists(result_path):
         return
     
-    examples = generate(difficulty = difficulty, verbose = 0, count = STEP_SIZE)
+    examples = generate.generate_many_games(STEP_SIZE, NUM_CPUS, difficulty, density)
 
-    inputs = np.stack([a[0] for a in examples])
-    labels = np.stack([a[1] for a in examples])
+    lines = [" ".join(line)+"\n" for line in examples]
 
-    np.save(input_path, inputs)
+
+    with open(result_path, 'w') as f:
+        f.writelines(lines)
+        
+if __name__ == "__main__":
     
-    label_path = os.path.join(dir_path, f"labels_{number:05d}.npy")
+    assert all([i in WANTED for i in DIFFICULTIES])
     
-    np.save(label_path, labels)
+    for setting in SETTINGS:
+        
+        
+        STEP_SIZE = 100000
+        EXAMPLES_PER_DIFFICULTY = WANTED[setting[0]]
 
+        N_STEPS = EXAMPLES_PER_DIFFICULTY // STEP_SIZE
 
-
-with Pool(NUM_CPUS) as p:
-    for difficulty in DIFFICULTIES[::-1]:
-        args = [(difficulty, i) for i in range(N_STEPS // 2, N_STEPS)]
-        list(tqdm.tqdm(p.imap(generate_and_save_data, args), total= N_STEPS // 2))
-
-
-
-
+        
+        print("Now Doing Setting:", setting)
+        
+        for number in tqdm.tqdm(range(N_STEPS)):
+            
+            generate_and_save_data(setting, number)
+        
