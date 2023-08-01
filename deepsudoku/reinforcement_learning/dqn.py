@@ -2,14 +2,13 @@ import tensorflow as tf
 import numpy as np
 import gymnasium as gym
 import random
-
+import tqdm
 
 @tf.function
 def preprocess_all(observation, next_observation, action, reward, terminated):
-
     observation = tf.cast(observation, tf.int32)
     observation = tf.one_hot(observation, 10)
-    
+
     next_observation = tf.cast(next_observation, tf.int32)
     next_observation = tf.one_hot(next_observation, 10)
 
@@ -22,8 +21,6 @@ def preprocess_all(observation, next_observation, action, reward, terminated):
 
 @tf.function
 def preprocess_obervation(observation):
-
-
     observation = tf.cast(observation, tf.int32)
     observation = tf.one_hot(observation, 10)
 
@@ -32,19 +29,17 @@ def preprocess_obervation(observation):
 
 @tf.function
 def update_q_network(data, dqn, target_dqn, optimizer, gamma, loss_func):
-
     state, next_state, action, reward, terminated = data
 
     s_prime_values = target_dqn(next_state, training=False)
-    s_prime_values = tf.reduce_max(s_prime_values, [1,2,3])
+    s_prime_values = tf.reduce_max(s_prime_values, [1, 2, 3])
     mask = 1 - tf.cast(terminated, tf.float32)
 
     labels = reward + gamma * mask * s_prime_values
 
     with tf.GradientTape() as tape:
-
         predictions = dqn(state, training=True)
-        action_values = tf.gather_nd(predictions, action, batch_dims= 1)
+        action_values = tf.gather_nd(predictions, action, batch_dims=1)
 
         loss = loss_func(action_values, labels)
 
@@ -68,22 +63,21 @@ def polyak_averaging(Q_target, Q_dqn, tau):
         old.assign(update)
 
 
-
 @tf.function
 def sample_trajectory(dqn, state, epsilon=0.2):
-
     n_par = tf.shape(state)[0]
 
     mask = tf.random.uniform((n_par,), 0, 1, tf.float32) > epsilon
 
     predictions = dqn(state, training=False)
 
-    reshaped = tf.reshape(predictions,[n_par,-1])
+    reshaped = tf.reshape(predictions, [n_par, -1])
     arg_max = tf.argmax(reshaped, -1)
-    max_actions = tf.unravel_index(arg_max, (9,9,9))
+    max_actions = tf.unravel_index(arg_max, (9, 9, 9))
 
     random_choices = tf.random.uniform(
-        shape=[3, n_par], minval=0, maxval=9, dtype=tf.int64)
+        shape=[3, n_par], minval=0, maxval=9, dtype=tf.int64
+    )
 
     return tf.where(mask, max_actions, random_choices)
 
@@ -93,7 +87,9 @@ class SimpleReplayBuffer:
     Class for managing a replay buffer for reinforcement learning.
     """
 
-    def __init__(self, ) -> None:
+    def __init__(
+        self, preprocessing_func = preprocess_all,
+    ) -> None:
         """
         Initialize the ReplayBuffer instance.
 
@@ -101,40 +97,24 @@ class SimpleReplayBuffer:
             preprocess_func: Function to preprocess examples.
         """
         self.saved_trajectories = []
+        self.preprocessing_func = preprocessing_func
 
-    def add_new_trajectory(self, trajectory):
+    def add_new_trajectories(self, trajectory):
         """
         Add a new trajectory to the replay buffer.
 
         Args:
             trajectory: List of examples representing a trajectory.
         """
-        self.saved_trajectories.append(trajectory)
+        self.saved_trajectories.extend(trajectory)
 
-    def drop_first_trajectory(self):
+    def drop_first_trajectories(self, n_examples):
         """
         Remove the oldest trajectory from the replay buffer.
         """
-        self.saved_trajectories.pop(0)
+        self.saved_trajectories = self.saved_trajectories[n_examples:]
 
-    def sample_singe_example(
-        self,
-    ):
-        """
-        Sample a single example from the replay buffer.
 
-        Args:
-            melt_stop_criteria: Boolean flag indicating whether to consider stop criteria (default: False).
-
-        Returns:
-            example: A single example from a randomly chosen trajectory.
-        """
-        trajectory = random.choice(self.saved_trajectories)
-        example = random.choice(trajectory)
-
-        states, next_states, actions, rewards, terminations, = example
-
-        return states, next_states, actions, rewards, terminations
 
     def sample_n_examples(self, n_examples: int):
         """
@@ -146,7 +126,8 @@ class SimpleReplayBuffer:
         Returns:
             states, next_states, actions, rewards, stop_criteria: Arrays of sampled examples.
         """
-        trajectories = [self.sample_singe_example() for _ in range(n_examples)]
+        trajectories = random.choices(self.saved_trajectories, k = n_examples)
+        
 
         states, next_states, actions, rewards, stop_criteria = map(
             np.array, zip(*trajectories)
@@ -169,12 +150,10 @@ class SimpleReplayBuffer:
 
         ds = self.sample_n_examples(n_steps)
         ds = tf.data.Dataset.from_tensor_slices(ds)
-        ds = ds.map(preprocess_all, tf.data.AUTOTUNE)
+        ds = ds.map(self.preprocessing_func, tf.data.AUTOTUNE)
         ds = ds.batch(batchsize)
 
         return ds
-
-
 
 
 class ENV_SAMPLER:
@@ -182,7 +161,15 @@ class ENV_SAMPLER:
     Class for sampling environment data using a DQN model.
     """
 
-    def __init__(self, dqn, n_multi_envs, env_kwargs = {}) -> None:
+    def __init__(
+        self,
+        env,
+        dqn,
+        n_multi_envs,
+        preprocessing_func = preprocess_all,
+        sample_func = sample_trajectory,
+        env_kwargs={},
+    ) -> None:
         """
         Initialize the ENV_SAMPLER instance.
 
@@ -192,11 +179,13 @@ class ENV_SAMPLER:
             n_multi_envs: The number of parallel environments.
             preprocess_observation: Function to preprocess observations.
         """
-        
-        self.env = gym.make_vec('Sudoku-v0', num_envs=n_multi_envs, **env_kwargs)
+
+        self.env = gym.make_vec(env, num_envs=n_multi_envs, **env_kwargs)
         self.current_state = self.env.reset()[0]
         self.dqn = dqn
         self.n_multi_envs = n_multi_envs
+        self.preprocessing_func = preprocessing_func
+        self.sample_func = sample_func
 
     def reset_env(self):
         """
@@ -204,7 +193,7 @@ class ENV_SAMPLER:
         """
         self.current_state = self.env.reset()[0]
 
-    def sample(self, n_samples, epsilon=0.2):
+    def sample(self, n_samples, epsilon, verbose = False):
         """
         Sample environment data.
 
@@ -219,71 +208,64 @@ class ENV_SAMPLER:
 
         n_steps = np.ceil(n_samples / self.n_multi_envs).astype(int)
 
-        for _ in range(n_steps):
-            oberservation_as_tensor = preprocess_obervation(
-                self.current_state)
+        for _ in tqdm.tqdm(range(n_steps), disable= not verbose ):
+            oberservation_as_tensor = self.preprocessing_func(self.current_state)
 
-            action = sample_trajectory(self.dqn, oberservation_as_tensor, epsilon).numpy()
+            action = self.sample_func(
+                self.dqn, oberservation_as_tensor, epsilon
+            ).numpy()
 
-            # correct the number raneg
-            action[-1] +=1
 
-            observation, reward, terminated, truncated, info = self.env.step(
-                action)
+            observation, reward, terminated, truncated, info = self.env.step(action) 
 
             for i in range(self.n_multi_envs):
-                samples.append((self.current_state[i],
-                                observation[i],
-                                action[:,i],
-                                reward[i],
-                                terminated[i]))
+                samples.append(
+                    (
+                        self.current_state[i],
+                        observation[i],
+                        action[:, i] if len(action.shape) > 1 else action[i],
+                        reward[i],
+                        terminated[i],
+                    )
+                )
 
             self.current_state = observation
 
         return samples[:n_samples]
 
-    def measure_model_perforamnce(self,):
-
+    def measure_model_perforamnce(
+        self,
+    ):
         self.reset_env()
 
         rewards = np.zeros(self.n_multi_envs)
-        terminated_at = []     
+        terminated_at = []
 
         allready_terminated = np.zeros(self.n_multi_envs, bool)
 
         steps = 0
 
         while True:
+            oberservation_as_tensor = self.preprocessing_func(self.current_state)
 
-            oberservation_as_tensor = preprocess_obervation(
-                self.current_state)
+            action = self.sample_func(self.dqn, oberservation_as_tensor, 0).numpy()
 
-            action = sample_trajectory(self.dqn, oberservation_as_tensor, 0).numpy()
-
-            # correct the number raneg
-            action[-1] +=1
-            
-            observation, reward, terminated, truncated, info = self.env.step(
-                action)
+            observation, reward, terminated, truncated, info = self.env.step(action)
 
             self.current_state = observation
 
             rewards += reward * (1 - allready_terminated)
 
-            allready_terminated = np.logical_or(
-                allready_terminated, terminated)
+            allready_terminated = np.logical_or(allready_terminated, terminated)
 
             for t in terminated:
-
                 if t:
                     terminated_at.append(steps)
 
             steps += 1
 
             if allready_terminated.all():
-
                 break
-
 
         average_rewards = np.mean(rewards)
         average_termination = np.mean(terminated_at)
