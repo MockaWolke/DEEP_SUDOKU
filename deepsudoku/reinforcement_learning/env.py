@@ -20,7 +20,7 @@ class SudokuEnv(gymnasium.Env):
         self.render_mode = render_mode
         
         # Define action and observation spaces
-        self.action_space = spaces.Tuple((spaces.Discrete(9), spaces.Discrete(9), spaces.Discrete(9)))
+        self.action_space = spaces.MultiDiscrete([9, 9, 9])
         self.observation_space = spaces.Box(low=0, high=9, shape=(9, 9), dtype=np.int32)
         
         self.reward_range = (-1, 1)
