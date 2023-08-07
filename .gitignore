@@ -2,7 +2,7 @@ sudoku-generator/
 data/
 datasets/
 tdoku/
-
+.vscode/
 ckpt/
 logs/
 

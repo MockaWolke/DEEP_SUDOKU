@@ -5,6 +5,7 @@
 
 
 ## Install
-    1. Install Tensorflow 2.12.1 
-    2. pip install -r requirements.txt
-    3. bash setup.sh
+
+    1. pip install stable-baselines3[extra]
+    2. git clone https://github.com/brotskydotcom/sudoku-generator.git
+    3. pip install -e

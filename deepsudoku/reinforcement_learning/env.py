@@ -41,6 +41,8 @@ class SudokuEnv(gymnasium.Env):
         return self.field, {}  # Returning observation and info dictionary
     
     def step(self, action):
+        
+        
         y, x, number = action
         
         number += 1
@@ -57,6 +59,7 @@ class SudokuEnv(gymnasium.Env):
         else:
             reward = -1
             terminated = True
+        
         
         return self.field, reward, terminated, False, {}  # Returning observation, reward, terminated, truncated, and info dictionary
     
