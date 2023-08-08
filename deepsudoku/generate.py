@@ -5,7 +5,7 @@ import tqdm
 import multiprocessing
 import warnings
 from deepsudoku.norvig_solver import NorvigSolver
-
+import numpy as np
 
 
 #my implementation
@@ -39,10 +39,12 @@ def generate(f, size, idx):
             f[iy][ix] = 0
         return new
 
-size = 16
-f = np.zeros((size,size), dtype=np.uint8)
-field = generate(f, size, list(np.ndindex(f.shape)))
-print(field)
+def generate_wrapper(size):
+    """Generates a full board"""
+    f = np.zeros((size,size), dtype=np.uint8)
+    field = generate(f, size, list(np.ndindex(f.shape)))
+    
+    return field
 
 
 
@@ -80,7 +82,9 @@ class Solver():
 
 
 def construct_puzzle_solution():
-    """Code from https://github.com/Kyubyong/sudoku/blob/master/generate_sudoku.py"""
+    """
+    Generates a full sudoku.
+    Code from https://github.com/Kyubyong/sudoku/blob/master/generate_sudoku.py"""
     # Loop until we're able to fill all 81 cells with numbers, while
     # satisfying the constraints above.
     while True:
@@ -120,10 +124,7 @@ class Generator:
     Generate a problem puzzle by removing values from a solved puzzle,
     making sure that removal of the value doesn't introduce another solution.
 
-    Before we start removing squares, we pick one of a small set of solved
-    puzzles and preform a sequence of randomly-chosen, correctness-preserving
-    transformations on it.  (Without this step, we would have to have a large
-    number of solutions to generate a large number of puzzles.)
+    We sample a random solution.
 
     We then pick squares whose values should be removed.  We do this
     in two sequences:
@@ -194,6 +195,7 @@ class Generator:
                 self.first_cutoff = upper_bound_missing_digist
 
             else:
+                
                 self.second_cutoff = upper_bound_missing_digist - self.first_cutoff
 
     def remove_values_1(self, board, cutoff):
