@@ -6,45 +6,56 @@ import multiprocessing
 import warnings
 from deepsudoku.norvig_solver import NorvigSolver
 import numpy as np
+from typing import Dict, Set, Tuple, List
 
 
-#my implementation
-def generate(f, size, idx):
+def generate2(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
     
     if not idx:
-        return f
-    iy, ix = idx[0]
-
-    #print("-----------")
-    #print(idx[0])
-    #print(f)
-
-    block_size = int(np.sqrt(size))
-    by = (iy // block_size) * block_size
-    bx = (ix // block_size) * block_size
-    block = f[by:by+block_size, bx:bx+block_size].flatten()
-    choose_from = list(set(range(1, size + 1)) - set(np.concatenate((f[iy,:], f[:,ix], block))))
-    random.shuffle(choose_from)
-    #print(choose_from)
-
-    if choose_from == []:
-        return None
-    else:
-        for x in choose_from:
-            f[iy][ix] = x
-            new = generate(f, size, idx[1:])
-            if new is not None:
-                break
-        if new is None:
-            f[iy][ix] = 0
-        return new
-
-def generate_wrapper(size):
-    """Generates a full board"""
-    f = np.zeros((size,size), dtype=np.uint8)
-    field = generate(f, size, list(np.ndindex(f.shape)))
+        return True
     
-    return field
+    y, x = idx[0]
+    block_tuple = (y//3, x//3)
+    
+    # Find possible numbers for current cell
+    choose_from = list(rows[y].intersection(cols[x]).intersection(blocks[block_tuple]))
+    
+    if not choose_from:
+        return False
+    
+    random.shuffle(choose_from)
+    
+    for number in choose_from:
+        rows[y].discard(number)
+        cols[x].discard(number)
+        blocks[block_tuple].discard(number)
+        
+        if generate2(field, rows, cols, blocks, idx[1:]):
+            field[(y, x)] = number
+            return True
+        
+        # Restore numbers if the current number doesn't lead to a solution
+        rows[y].add(number)
+        cols[x].add(number)
+        blocks[block_tuple].add(number)
+    
+    return False
+
+def construct_puzzle_solution() -> List[int]:
+    
+    field = {}
+    numbers = set(range(1, 10))
+    
+    # Initialize possible numbers for each row, column, and block
+    rows = {i: numbers.copy() for i in range(9)}
+    cols = {i: numbers.copy() for i in range(9)}
+    blocks = {(i, j): numbers.copy() for i in range(3) for j in range(3)}
+    index = list(np.ndindex(9, 9))
+    
+    generate2(field, rows, cols, blocks, index)
+    
+    return [field[(y,x)] for y in range(9) for x in range(9)]
+    
 
 
 
@@ -76,46 +87,6 @@ class Solver():
         
         return NorvigSolver(self.board).can_solve()
 
-
-
-
-
-
-def construct_puzzle_solution():
-    """
-    Generates a full sudoku.
-    Code from https://github.com/Kyubyong/sudoku/blob/master/generate_sudoku.py"""
-    # Loop until we're able to fill all 81 cells with numbers, while
-    # satisfying the constraints above.
-    while True:
-        try:
-            puzzle = [[0] * 9 for i in range(9)]  # start with blank puzzle
-            rows = [set(range(1, 10)) for i in range(9)]  # set of available
-            columns = [set(range(1, 10)) for i in range(9)]  #   numbers for each
-            squares = [set(range(1, 10)) for i in range(9)]  #   row, column and square
-            for i in range(9):
-                for j in range(9):
-                    # pick a number for cell (i,j) from the set of remaining available numbers
-                    choices = (
-                        rows[i]
-                        .intersection(columns[j])
-                        .intersection(squares[(i // 3) * 3 + j // 3])
-                    )
-                    choice = random.choice(list(choices))
-
-                    puzzle[i][j] = choice
-
-                    rows[i].discard(choice)
-                    columns[j].discard(choice)
-                    squares[(i // 3) * 3 + j // 3].discard(choice)
-
-            # success! every cell is filled.
-
-            return [digit for row in puzzle for digit in row]
-
-        except IndexError:
-            # if there is an IndexError, we have worked ourselves in a corner (we just start over)
-            pass
 
 
 class Generator:
