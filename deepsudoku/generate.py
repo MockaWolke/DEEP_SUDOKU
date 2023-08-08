@@ -8,6 +8,45 @@ from deepsudoku.norvig_solver import NorvigSolver
 
 
 
+#my implementation
+def generate(f, size, idx):
+    
+    if not idx:
+        return f
+    iy, ix = idx[0]
+
+    #print("-----------")
+    #print(idx[0])
+    #print(f)
+
+    block_size = int(np.sqrt(size))
+    by = (iy // block_size) * block_size
+    bx = (ix // block_size) * block_size
+    block = f[by:by+block_size, bx:bx+block_size].flatten()
+    choose_from = list(set(range(1, size + 1)) - set(np.concatenate((f[iy,:], f[:,ix], block))))
+    random.shuffle(choose_from)
+    #print(choose_from)
+
+    if choose_from == []:
+        return None
+    else:
+        for x in choose_from:
+            f[iy][ix] = x
+            new = generate(f, size, idx[1:])
+            if new is not None:
+                break
+        if new is None:
+            f[iy][ix] = 0
+        return new
+
+size = 16
+f = np.zeros((size,size), dtype=np.uint8)
+field = generate(f, size, list(np.ndindex(f.shape)))
+print(field)
+
+
+
+
 class Solver():
     
     def __init__(self, use_tdoku = False) -> None:
