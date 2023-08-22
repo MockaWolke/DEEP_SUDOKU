@@ -9,11 +9,11 @@ warnings.filterwarnings(
     message=".*A Box observation space.*",
 )
 
-from deepsudoku.reinforcement_learning.env import create_sudoku_env
+from deepsudoku.reinforcement_learning.env import create_sudoku_env_v0, create_sudoku_env_v1
 
 gymnasium.register(
     id="Sudoku-v0",
-    entry_point=create_sudoku_env,
+    entry_point=create_sudoku_env_v0,
     kwargs={
         "difficulty": "easy",
         "factor_in_density": False,
@@ -22,5 +22,16 @@ gymnasium.register(
     },
     max_episode_steps=81,
 )
+
+gymnasium.register(
+    id="Sudoku-v1",
+    entry_point=create_sudoku_env_v1,
+    kwargs={
+        "size": 3,
+        "render_mode": "none"
+    },
+    max_episode_steps=81,
+)
+
 
 print("Sudoku Environment avaible at gymnasium as 'Sudoku-v0'.")

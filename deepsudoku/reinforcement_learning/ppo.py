@@ -20,6 +20,10 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         # Implementing Multi-Discrete Action spaces:
         # probs = [environments][action-spaces][logprobs]
         # We need to sample for each environment from all action-spaces
+        # NOTE: This assumes that all action-spaces look like [0,1,2,3,...]
+        # In particular, for the sudoku case, the third action space represents the number we want to fill in
+        # This number will be one less than the actual digit that gets filled in
+        # This is accounted for and implemented like this in our custom environment
         action = [
                     [np.random.choice(np.arange(len(logprob)), p=logprob) for logprob in action_space]
                     for action_space in probs
