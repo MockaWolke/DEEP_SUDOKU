@@ -108,15 +108,13 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         ########################################################################################################
 
         # Collect old_logits without gradientTaping for taking the ratio later
-        #TODO make work with multi-discrete
-        # pi(D["observations"]) is now an array of [action][action_subspace] where [action_subspace] contains logprobs
+        # pi(D["observations"]) is now an array of [action][action_subspace][logprobs]
         # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
-        # => TODO are we sure about this?
         # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
-        print(D["actions"][0])
-        print(pi(D["observations"])[0])
-        old_logits = tf.gather_nd(pi(D["observations"]), D["actions"], batch_dims=1)
-        print(old_logits[0])
+        # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
+        old_logits = tf.gather(pi(D["observations"]), D["actions"], batch_dims=2)
+        old_logits = tf.reduce_sum(old_logits, axis=-1)
+
 
         print("Tapework")
 
@@ -139,7 +137,10 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
                 ########################################################################################################
                 # 6: Update the policy by maximizing the PPO-Clip objective
                 with tf.GradientTape() as pi_tape:
-                    new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=1)
+                    # calculating new logits from multi-discrete action space, see above
+                    new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=2)
+                    new_logits = tf.reduce_sum(new_logits, axis=-1)
+                    # for ppo clip, we want pi(s,a)/pi_old(s,a) = exp(log(pi(s,a))-log(pi_old(s,a)))
                     logratios = new_logits - mb_old_logits
                     ratios = tf.math.exp(logratios)
                     surrogate_objective1 = ratios * mb_advantages
