@@ -5,11 +5,11 @@ import random
 
 
 class PPO_MultiDiscrete_Environment_Wrapper:
-    def __init__(self, environment_name, NUM_ENVS):
+    def __init__(self, environment_name, NUM_ENVS, **env_kwargs):
         self.num_envs = NUM_ENVS
         # We use vectorized environments (Implementation Detail 1)
         #self.envs = envs = gym.vector.make('CartPole-v1', num_envs=NUM_ENVS)
-        self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS)
+        self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS, **env_kwargs)
         self.current_state, _ = self.envs.reset()
 
     def sample(self, model):
@@ -53,17 +53,18 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         MAX_GRAD_NORM = 0.5, TRAIN_EPOCHS = 2500, NUM_UPDATE_EPOCHS = 1, MINIBATCH_SIZE = 50, 
         LEARNING_RATE_START = 0.005, LEARNING_RATE_DECAY_PER_EPOCH = None):
     
-    if not LEARNING_RATE_DECAY_PER_EPOCH:
+    if LEARNING_RATE_DECAY_PER_EPOCH == None:
         LEARNING_RATE_DECAY_PER_EPOCH = LEARNING_RATE_START/TRAIN_EPOCHS
     # Implementation Detail 3: The Adam Optimizers Epsilon and beta parameters are already fine by default
     value_optimizer = tf.keras.optimizers.Adam(learning_rate = LEARNING_RATE_START)
     pi_optimizer = tf.keras.optimizers.Adam(learning_rate = LEARNING_RATE_START)
 
     kl_approx = 0
+    mean_rewards = 0
     ########################################################################################################
     # 2: for k = 0, 1, 2, ... do
     for k in range(TRAIN_EPOCHS):
-        print("epoch: ", k, " ; KL: ", kl_approx, " ; LR: ", pi_optimizer.learning_rate.numpy())
+        print("epoch: ", k, " ; KL: ", kl_approx, " ; LR: ", pi_optimizer.learning_rate.numpy(), " ; MR: ", mean_rewards)
         #print("Gathering trajectories")
     ########################################################################################################
 
@@ -72,6 +73,7 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         # 3: Collect set of trajectories D_k = {τ_i} by running policy π_k = pi(θ_k) in the environment.
         print("Collection")
         D, ensuing_observation = env.collect_trajectories(pi, STEPS_PER_TRAJECTORY)
+        mean_rewards = np.mean(D["rewards"])
         #D = {"observations": [environment][timestep][observation], 
         #     "actions": [environment][timestep][actions], 
         #     "rewards": [environment][timestep], 
@@ -159,6 +161,7 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
 
                 # Implementation Detail 12: Implementing KL divergence as debug variable:
                 kl_approx = tf.reduce_mean((ratios - 1) - logratios).numpy()
+                #kl_approx = tf.reduce_mean(ratios).numpy()
 
                 ########################################################################################################
                 # 7: Fit value function by regression on mean-squared error:

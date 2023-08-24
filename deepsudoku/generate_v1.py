@@ -1,14 +1,15 @@
 import numpy as np
 from typing import Dict, Set, Tuple, List
+import random
 
 
-def generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
+def generate(size: int, field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
     
     if not idx:
         return True
     
     y, x = idx[0]
-    block_tuple = (y//3, x//3)
+    block_tuple = (y//size, x//size)
     
     # Find possible numbers for current cell
     choose_from = list(rows[y].intersection(cols[x]).intersection(blocks[block_tuple]))
@@ -23,7 +24,7 @@ def generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols:
         cols[x].discard(number)
         blocks[block_tuple].discard(number)
         
-        if generate2(field, rows, cols, blocks, idx[1:]):
+        if generate(size, field, rows, cols, blocks, idx[1:]):
             field[(y, x)] = number
             return True
         
@@ -34,28 +35,21 @@ def generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols:
     
     return False
 
-def construct_puzzle_solution() -> List[int]:
+def construct_puzzle_solution(size):
     
+    sq_size = np.square(size)
     field = {}
-    numbers = set(range(1, 10))
+    numbers = set(range(1, sq_size+1))
     
     # Initialize possible numbers for each row, column, and block
-    rows = {i: numbers.copy() for i in range(9)}
-    cols = {i: numbers.copy() for i in range(9)}
-    blocks = {(i, j): numbers.copy() for i in range(3) for j in range(3)}
-    index = list(np.ndindex(9, 9))
-    
-    generate2(field, rows, cols, blocks, index)
-    
-    return [field[(y,x)] for y in range(9) for x in range(9)]
-    
+    rows = {i: numbers.copy() for i in range(sq_size)}
+    cols = {i: numbers.copy() for i in range(sq_size)}
+    blocks = {(i, j): numbers.copy() for i in range(size) for j in range(size)}
+    index = list(np.ndindex(sq_size, sq_size))
 
-def construct_puzzle_solution2() -> List[int]:
-    size = 3
-    Sudoku = np.empty((size**2, size**2, size**2), dtype=np.uint8)
-    Sudoku[:] = np.ones(size**2)
-    recursive_removal(Sudoku, list(np.ndindex(Sudoku.shape[:2])))
-    return convert_to_sudoku(Sudoku).flatten()
+    generate(size, field, rows, cols, blocks, index)
+    
+    return np.array([[field[(y,x)] for x in range(sq_size)] for y in range(sq_size)], dtype=np.int32)
 
 
 class Generator:
@@ -64,7 +58,14 @@ class Generator:
         self.size = size
         #size**2 = row/ column length of sudoku
 
-    def generate_one():
+    def generate_one(self):
         # return size**2 x size**2 np array representing the sudoku field
         # with some missing ditits and the solution of the field
-        pass
+        sol = construct_puzzle_solution(self.size)
+
+        # Stupid approach for removing fields so that the solution is still unique: just do pairwise multiplication
+        # with a random permutation matrix
+        P = np.eye(np.square(self.size), dtype=np.int32) 
+        np.random.shuffle(P)  # shuffles rows
+
+        return np.multiply(sol, 1-P), sol

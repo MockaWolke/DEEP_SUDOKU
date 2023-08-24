@@ -1,6 +1,6 @@
 import numpy as np 
 from deepsudoku.generate_v0 import Generator, Solver
-import deepsudoku.generate_v1
+from deepsudoku import generate_v1
 from deepsudoku.utils import string_to_array, visualize_sudoku
 import gymnasium
 from gymnasium import spaces
@@ -125,12 +125,17 @@ class SudokuEnv_v1(gymnasium.Env):
         if self.field[y, x] == 0 and self.solution[y, x] == number:
             self.field[y, x] = number
             
+            reward = 1
+
             if np.array_equal(self.field, self.solution):
-                terminated = True    
-                reward = 1
+                terminated = True
+        elif self.field[y, x] == 0:
+            reward = 0.5    
         else:
             reward = -1
-            terminated = True
+
+        if terminated:
+            self.reset()
         
         
         return self.field, reward, terminated, False, {}  # Returning observation, reward, terminated, truncated, and info dictionary
@@ -162,5 +167,5 @@ class SudokuEnv_v1(gymnasium.Env):
 def create_sudoku_env_v0(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
     return SudokuEnv_v0(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
 
-def create_sudoku_env_v1(render_mode = "none"):
-    return SudokuEnv_v1(size = 3, render_mode = render_mode)
+def create_sudoku_env_v1(render_mode = "none", size = 3):
+    return SudokuEnv_v1(size = size, render_mode = render_mode)
