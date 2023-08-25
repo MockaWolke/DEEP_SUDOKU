@@ -24,27 +24,33 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         # In particular, for the sudoku case, the third action space represents the number we want to fill in
         # This number will be one less than the actual digit that gets filled in
         # This is accounted for and implemented like this in our custom environment
-        action = [
+        action = np.array([
                     [np.random.choice(np.arange(len(logprob)), p=logprob) for logprob in action_space]
                     for action_space in probs
-                 ]
+                 ])
+
+        log_prob = tf.gather(q_values, action, batch_dims=2)
+        log_prob = tf.reduce_sum(log_prob, axis=-1).numpy()
+
         new_observation, reward, terminated, _, _ = self.envs.step(action)
 
         self.current_state = new_observation #update current state after environment did step
-        return (old_observation, action, reward, new_observation, terminated)
+        return (old_observation, action, reward, new_observation, terminated, log_prob)
     
     def collect_trajectories(self, model, length):
-        old_obs, act, rew, new_obs, term = self.sample(model)
+        old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
         data = {"observations": np.expand_dims(old_obs, axis=1), 
                 "actions": np.expand_dims(act, axis=1), 
                 "rewards": rew, 
-                "terminateds": term}
+                "terminateds": term,
+                "log_prob": log_probs}
         for i in range(length-1):
-            old_obs, act, rew, new_obs, term = self.sample(model)
+            old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
             data["observations"] = np.column_stack((data["observations"], np.expand_dims(old_obs, axis=1)))
             data["actions"] = np.column_stack((data["actions"], np.expand_dims(act, axis=1)))
             data["rewards"] = np.column_stack((data["rewards"], rew))
             data["terminateds"] = np.column_stack((data["terminateds"], term))
+            data["log_prob"] = np.column_stack((data["log_prob"], log_probs))
         return data, new_obs
 
 
@@ -118,8 +124,9 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
         # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
         # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
-        old_logits = tf.gather(pi(D["observations"]), D["actions"], batch_dims=2)
-        old_logits = tf.reduce_sum(old_logits, axis=-1)
+        #old_logits = tf.gather(pi(D["observations"]), D["actions"], batch_dims=2)
+        #old_logits = tf.reduce_sum(old_logits, axis=-1)
+        old_logits = D["log_prob"]
 
 
         print("Tapework")
