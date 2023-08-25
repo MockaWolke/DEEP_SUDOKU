@@ -15,27 +15,27 @@ class PPO_MultiDiscrete_Environment_Wrapper:
     def sample(self, model):
         old_observation = self.current_state
         q_values = model(self.current_state) #get q values for current state
-        #Q_values are logprobs, we use a categorical distribution to sample
-        probs = np.exp(q_values)
+        # Q_values are logits, we convert them to a categorical distribution to sample
+        # TODO: but first we mask out invalid actions
+        # ...
+        # masked_logits
+        masked_logits = q_values
+
         # Implementing Multi-Discrete Action spaces:
-        # probs = [environments][action-spaces][logprobs]
+        # masked_logits = [environments][action-spaces][logprobs]
         # We need to sample for each environment from all action-spaces
         # NOTE: This assumes that all action-spaces look like [0,1,2,3,...]
         # In particular, for the sudoku case, the third action space represents the number we want to fill in
         # This number will be one less than the actual digit that gets filled in
         # This is accounted for and implemented like this in our custom environment
-        action = np.array([
-                    [np.random.choice(np.arange(len(logprob)), p=logprob) for logprob in action_space]
-                    for action_space in probs
-                 ])
-
-        log_prob = tf.gather(q_values, action, batch_dims=2)
-        log_prob = tf.reduce_sum(log_prob, axis=-1).numpy()
+        probs = tf.nn.softmax(masked_logits).numpy()
+        action = np.array([[np.random.choice(np.arange(len(action_space)),p=action_space) for action_space in environment] for environment in probs])
+        logprob = tf.cast(tf.reduce_sum(tf.math.log(tf.gather(probs, action, batch_dims=2)), axis=-1), np.float32).numpy()
 
         new_observation, reward, terminated, _, _ = self.envs.step(action)
 
         self.current_state = new_observation #update current state after environment did step
-        return (old_observation, action, reward, new_observation, terminated, log_prob)
+        return (old_observation, action, reward, new_observation, terminated, logprob)
     
     def collect_trajectories(self, model, length):
         old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
