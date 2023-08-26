@@ -119,20 +119,16 @@ class SudokuEnv_x0(gymnasium.Env):
         
         reward = 0
         terminated = False
-
-
-        #TODO are these optimal rewards?
+        
         if self.field[y, x] == 0 and self.solution[y, x] == number:
             self.field[y, x] = number
             
-            reward = 1
-
             if np.array_equal(self.field, self.solution):
-                terminated = True
-        elif self.field[y, x] == 0:
-            reward = 0.5    
+                terminated = True    
+                reward = 1
         else:
             reward = -1
+            terminated = True
 
         if terminated:
             self.reset()
