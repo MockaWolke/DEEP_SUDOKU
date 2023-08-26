@@ -5,8 +5,9 @@ import random
 
 
 class PPO_MultiDiscrete_Environment_Wrapper:
-    def __init__(self, environment_name, NUM_ENVS, **env_kwargs):
+    def __init__(self, environment_name, NUM_ENVS, action_mask=None, **env_kwargs):
         self.num_envs = NUM_ENVS
+        self.action_mask = action_mask
         # We use vectorized environments (Implementation Detail 1)
         #self.envs = envs = gym.vector.make('CartPole-v1', num_envs=NUM_ENVS)
         self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS, **env_kwargs)
@@ -16,10 +17,10 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         old_observation = self.current_state
         q_values = model(self.current_state) #get q values for current state
         # Q_values are logits, we convert them to a categorical distribution to sample
-        # TODO: but first we mask out invalid actions
-        # ...
-        # masked_logits
-        masked_logits = q_values
+        if self.action_mask:
+            masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
+        else:
+            masked_logits = q_values
 
         # Implementing Multi-Discrete Action spaces:
         # masked_logits = [environments][action-spaces][logprobs]
@@ -54,8 +55,52 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         return data, new_obs
 
 
+class PPO_Discrete_Environment_Wrapper:
+    def __init__(self, environment_name, NUM_ENVS, action_mask=None, **env_kwargs):
+        self.num_envs = NUM_ENVS
+        self.action_mask = action_mask
+        # We use vectorized environments (Implementation Detail 1)
+        #self.envs = envs = gym.vector.make('CartPole-v1', num_envs=NUM_ENVS)
+        self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS, **env_kwargs)
+        self.current_state, _ = self.envs.reset()
 
-def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP_RATIO = 0.2,
+    def sample(self, model):
+        old_observation = self.current_state
+        q_values = model(self.current_state) #get q values for current state
+        # Q_values are logits, we convert them to a categorical distribution to sample
+        if self.action_mask:
+            masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
+        else:
+            masked_logits = q_values
+
+        probs = tf.nn.softmax(masked_logits).numpy()
+        action = np.array([np.random.choice(np.arange(len(environment)),p=environment) for environment in probs])
+        logprob = tf.cast(tf.math.log(tf.gather(probs, action, batch_dims=1)), np.float32).numpy()
+
+        new_observation, reward, terminated, _, _ = self.envs.step(action)
+
+        self.current_state = new_observation #update current state after environment did step
+        return (old_observation, action, reward, new_observation, terminated, logprob)
+    
+    def collect_trajectories(self, model, length):
+        old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+        data = {"observations": np.expand_dims(old_obs, axis=1), 
+                "actions": np.expand_dims(act, axis=1), 
+                "rewards": rew, 
+                "terminateds": term,
+                "log_prob": log_probs}
+        for i in range(length-1):
+            old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+            data["observations"] = np.column_stack((data["observations"], np.expand_dims(old_obs, axis=1)))
+            data["actions"] = np.column_stack((data["actions"], np.expand_dims(act, axis=1)))
+            data["rewards"] = np.column_stack((data["rewards"], rew))
+            data["terminateds"] = np.column_stack((data["terminateds"], term))
+            data["log_prob"] = np.column_stack((data["log_prob"], log_probs))
+        return data, new_obs
+
+
+
+def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP_RATIO = 0.2,
         MAX_GRAD_NORM = 0.5, TRAIN_EPOCHS = 2500, NUM_UPDATE_EPOCHS = 1, MINIBATCH_SIZE = 50, 
         LEARNING_RATE_START = 0.005, LEARNING_RATE_DECAY_PER_EPOCH = None):
     
@@ -71,7 +116,6 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
     # 2: for k = 0, 1, 2, ... do
     for k in range(TRAIN_EPOCHS):
         print("epoch: ", k, " ; KL: ", kl_approx, " ; LR: ", pi_optimizer.learning_rate.numpy(), " ; MR: ", mean_rewards)
-        #print("Gathering trajectories")
     ########################################################################################################
 
 
@@ -85,7 +129,6 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         #     "rewards": [environment][timestep], 
         #     "terminateds": [environment][timestep]] }
         ########################################################################################################
-
 
         ########################################################################################################
         # 4: Compute rewards-to-go R̂_t
@@ -119,16 +162,6 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
         rewards_to_go = advantages + values
         ########################################################################################################
 
-        # Collect old_logits without gradientTaping for taking the ratio later
-        # pi(D["observations"]) is now an array of [action][action_subspace][logprobs]
-        # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
-        # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
-        # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
-        #old_logits = tf.gather(pi(D["observations"]), D["actions"], batch_dims=2)
-        #old_logits = tf.reduce_sum(old_logits, axis=-1)
-        old_logits = D["log_prob"]
-
-
         print("Tapework")
 
         # We minibatch for increasing the efficiency of the gradient ascent (PPO-implementation details nr. 6)
@@ -142,7 +175,7 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
 
                 mb_obs = D["observations"][minibatch_inds]
                 mb_acts = D["actions"][minibatch_inds]
-                mb_old_logits = tf.gather(old_logits, minibatch_inds)
+                mb_old_logits = tf.gather(D["log_prob"], minibatch_inds)
                 mb_advantages = tf.gather(advantages, minibatch_inds)
                 # zero center advantages (Implementation Detail 7)
                 mb_advantages = (mb_advantages - tf.reduce_mean(mb_advantages)) / (tf.math.reduce_std(mb_advantages) + 1e-8)
@@ -150,9 +183,16 @@ def PPO(env, pi, V, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP
                 ########################################################################################################
                 # 6: Update the policy by maximizing the PPO-Clip objective
                 with tf.GradientTape() as pi_tape:
-                    # calculating new logits from multi-discrete action space, see above
-                    new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=2)
-                    new_logits = tf.reduce_sum(new_logits, axis=-1)
+                    if multi_discrete:
+                    # calculating new logits from multi-discrete action space
+                    # pi(D["observations"]) is now an array of [action][action_subspace][logprobs]
+                    # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
+                    # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
+                    # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
+                        new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=2)
+                        new_logits = tf.reduce_sum(new_logits, axis=-1)
+                    else:
+                        new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=1)
                     # for ppo clip, we want pi(s,a)/pi_old(s,a) = exp(log(pi(s,a))-log(pi_old(s,a)))
                     logratios = new_logits - mb_old_logits
                     ratios = tf.math.exp(logratios)

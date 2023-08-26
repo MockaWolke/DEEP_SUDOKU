@@ -98,7 +98,8 @@ class SudokuEnv_v1(gymnasium.Env):
         self.square_size = np.square(self.size)
         
         # Define action and observation spaces
-        self.action_space = spaces.MultiDiscrete([self.square_size, self.square_size, self.square_size])
+        #Discrete Action space
+        self.action_space = spaces.Discrete(self.square_size**3)
         self.observation_space = spaces.Box(low=0, high=self.square_size, shape=(self.square_size, self.square_size), dtype=np.int32)
         self.reward_range = (-1, 1)
 
@@ -113,7 +114,13 @@ class SudokuEnv_v1(gymnasium.Env):
         return self.field, {}  # Returning observation and info dictionary
     
     def step(self, action):
-        y, x, number = action
+        #Discrete Action space:
+        #We use a base-square_size number system:
+        #First (square_size) numbers x correspond to y=0, x=0, number = x
+        #The (square_size) numbers x after correspond to y=0 , x=1, number = x-(square_size*1) etc...
+        y = action//(self.square_size**2)
+        x = (action%(self.square_size**2))//(self.square_size)
+        number = action%(self.square_size)
         
         number += 1
         
@@ -126,13 +133,15 @@ class SudokuEnv_v1(gymnasium.Env):
             if np.array_equal(self.field, self.solution):
                 terminated = True    
                 reward = 1
+                #print("env solved")
         else:
+            if self.field[y, x] != 0:
+                print("invalid action")
             reward = -1
             terminated = True
 
         if terminated:
             self.reset()
-        
         
         return self.field, reward, terminated, False, {}  # Returning observation, reward, terminated, truncated, and info dictionary
     
