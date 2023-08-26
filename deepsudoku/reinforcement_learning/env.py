@@ -1,6 +1,6 @@
 import numpy as np 
-from deepsudoku.generate_v0 import Generator, Solver
-from deepsudoku import generate_v1
+from deepsudoku.generate import Generator, Solver
+from deepsudoku import exp_generate
 from deepsudoku.utils import string_to_array, visualize_sudoku
 import gymnasium
 from gymnasium import spaces
@@ -87,7 +87,7 @@ class SudokuEnv_v0(gymnasium.Env):
 
 
 
-class SudokuEnv_v1(gymnasium.Env):
+class SudokuEnv_x0(gymnasium.Env):
     
     metadata = {'render_modes': ['human', 'none'],
                 'render_fps' : 1}
@@ -102,7 +102,7 @@ class SudokuEnv_v1(gymnasium.Env):
         self.observation_space = spaces.Box(low=0, high=self.square_size, shape=(self.square_size, self.square_size), dtype=np.int32)
         self.reward_range = (-1, 1)
 
-        self.generator = generate_v1.Generator(self.size)
+        self.generator = exp_generate.Generator(self.size)
         self._generate_field()
         
     def _generate_field(self):
@@ -168,4 +168,4 @@ def create_sudoku_env_v0(difficulty, factor_in_density=False, upper_bound_missin
     return SudokuEnv_v0(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
 
 def create_sudoku_env_v1(render_mode = "none", size = 3):
-    return SudokuEnv_v1(size = size, render_mode = render_mode)
+    return SudokuEnv_x0(size = size, render_mode = render_mode)

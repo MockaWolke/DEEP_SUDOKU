@@ -24,7 +24,7 @@ gymnasium.register(
 )
 
 gymnasium.register(
-    id="Sudoku-v1",
+    id="Sudoku-x0",
     entry_point=create_sudoku_env_v1,
     kwargs={
         "size": 3,

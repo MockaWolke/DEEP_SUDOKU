@@ -9,7 +9,7 @@ import numpy as np
 from typing import Dict, Set, Tuple, List
 
 
-def generate2(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
+def recu_generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
     
     if not idx:
         return True
@@ -30,7 +30,7 @@ def generate2(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols
         cols[x].discard(number)
         blocks[block_tuple].discard(number)
         
-        if generate2(field, rows, cols, blocks, idx[1:]):
+        if recu_generate(field, rows, cols, blocks, idx[1:]):
             field[(y, x)] = number
             return True
         
@@ -52,108 +52,10 @@ def construct_puzzle_solution() -> List[int]:
     blocks = {(i, j): numbers.copy() for i in range(3) for j in range(3)}
     index = list(np.ndindex(9, 9))
     
-    generate2(field, rows, cols, blocks, index)
+    recu_generate(field, rows, cols, blocks, index)
     
     return [field[(y,x)] for y in range(9) for x in range(9)]
     
-
-def construct_puzzle_solution2() -> List[int]:
-    size = 3
-    Sudoku = np.empty((size**2, size**2, size**2), dtype=np.uint8)
-    Sudoku[:] = np.ones(size**2)
-    recursive_removal(Sudoku, list(np.ndindex(Sudoku.shape[:2])))
-    return convert_to_sudoku(Sudoku).flatten()
-
-
-# my implementation 2
-def convert_to_sudoku(board):
-    r = np.zeros(board.shape[:2])
-    for y, x in np.ndindex(board.shape[:2]):
-        cardinality = np.sum(board[y,x])
-        if cardinality == 1:
-            r[y,x] = np.nonzero(board[y,x])[0] + 1
-        else:
-            r[y,x] = 0
-    return r
-
-
-
-def recursive_removal(board, indices):
-
-    if not indices:
-        # board is finished
-        return True
-
-    # find index of field with largest number of constraints, ie. smallest number of possible values
-    (ind_, min_) = ((-1,-1), board.shape[2]+1)
-    for y, x in indices:
-        cardinality = np.sum(board[y,x])
-        if cardinality == 0:
-            # if there is a field with zero possibilities, we failed
-            #print("There are 0 possibilities at ", y, " ", x)
-            return False
-        elif cardinality < min_:
-            (ind_, min_) = ((y,x), cardinality)
-    
-
-    # ind_ contains the index of the field with the smallest number of constraints
-    indices.remove(ind_)
-    # we pick a possible value at random, remember it and remove it from all constrainees
-    # then we recursively proceed
-
-    inds = np.nonzero(board[ind_])[0]
-    # for a random pick, we shuffle
-    np.random.shuffle(inds)
-
-    board[ind_] = 0
-
-    #print(inds, " @ ", ind_)
-
-    for ind in inds:
-
-        # set constrainees to false:
-        y_, x_ = ind_
-        by = (y_ // size) * size #bolck coordinates
-        bx = (x_ // size) * size #block coordinates
-
-        #backup rows/columns if we have to revert changes, see below
-        column_backup = np.copy(board[y_,:,ind])
-        row_backup = np.copy(board[:,x_,ind])
-        block_backup = np.copy(board[by:by+size, bx:bx+size, ind])
-        
-        board[y_,:,ind] = 0 #column
-        board[:,x_,ind] = 0 #row
-        board[by:by+size, bx:bx+size, ind] = 0 #block
-
-        # set this field to ind
-        board[ind_][ind] = 1
-
-        #print_sod(board)
-
-
-        if recursive_removal(board, indices):
-            return True
-
-
-        # we failed :(
-        # revert changes
-        #print("now reverting changes @ ", ind_)
-        # Problem: We cannot just revert by re-allowing ind for all the other fields, because these may already have been constrained.
-        # Therefore we have to use the backups from above
-        board[y_,:,ind] = column_backup
-        board[:,x_,ind] = row_backup
-        board[by:by+size, bx:bx+size, ind] = block_backup
-        board[ind_][ind] = 0
-    
-    # all indices failed, therefore we have to backtrack.
-    indices.append(ind_)
-    board[ind_][inds]
-    return False
-
-
-
-    
-
 
 
 
