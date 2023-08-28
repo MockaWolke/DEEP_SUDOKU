@@ -4,7 +4,6 @@ datasets/
 tdoku/
 .vscode/
 ckpt/
-logs/
 
 logs_copied.csv
 logs.csv

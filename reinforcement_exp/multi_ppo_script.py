@@ -183,13 +183,16 @@ if __name__ == "__main__":
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(done).to(device)
 
 
-            for item in info["final_info"]:
+            if "final_info" in info:
+            
+                for item in info["final_info"]:
+                    
+                    if isinstance(item, dict) and "episode" in item.keys():
+                        # print(f"global_step={global_step}, episodic_return={item['episode']['r']}, episodic_length={item['episode']['l']}")
+                    
+                        average_return.append( item["episode"]["r"])
+                        average_length.append( item["episode"]["l"])
                 
-                if isinstance(item, dict) and "episode" in item.keys():
-                    # print(f"global_step={global_step}, episodic_return={item['episode']['r']}, episodic_length={item['episode']['l']}")
-                 
-                    average_return.append( item["episode"]["r"])
-                    average_length.append( item["episode"]["l"])
                  
                  
         writer.add_scalar("charts/avg_episodic_return", np.mean(average_return), global_step)

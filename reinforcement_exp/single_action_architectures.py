@@ -163,3 +163,136 @@ class SingleConvActorOnehot(AgentBarebone):
         
         return values, logits
         
+        
+class SingleOnlyConvActorOnehot(AgentBarebone):
+    
+    def __init__(self, mask_actions):
+        
+        super(SingleOnlyConvActorOnehot, self).__init__(mask_actions)
+    
+        self.network = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+
+        )
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding = 4), std=0.01),)
+        
+        self.critic = nn.Sequential(
+            nn.Flatten(),
+            layer_init(nn.Linear(32 * 9 * 9, 128)),
+            nn.ReLU(),
+            layer_init(nn.Linear(128, 1), std=1))
+
+
+    def get_value(self, obs):
+
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        return self.critic(self.network(obs))
+        
+    def get_value_and_logits(self, obs):
+        
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        hidden = self.network(obs)
+
+        values = self.critic(hidden)
+        
+        logits = self.actor(hidden).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        
+        
+        return values, logits
+        
+        
+class OnlyConvSeperateValue(AgentBarebone):
+    
+    def __init__(self, mask_actions):
+        
+        super(OnlyConvSeperateValue, self).__init__(mask_actions)
+    
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding = 4), std=0.01),)
+        
+        self.critic = nn.Sequential(
+            nn.Flatten(),
+            layer_init(nn.Linear(810, 128)),
+            nn.Tanh(),
+            layer_init(nn.Linear(128, 256)),
+            nn.Tanh(),
+            layer_init(nn.Linear(256, 1), std=1.0),
+        )
+
+
+    def get_value(self, obs):
+
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        return self.critic(obs)
+        
+    def get_value_and_logits(self, obs : torch.Tensor):
+        
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        values = self.critic(obs)
+        
+        logits = self.actor(obs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        
+        
+        return values, logits
+        
+        
+class OnlyConvSeperateValueBigger(AgentBarebone):
+    
+    def __init__(self, mask_actions):
+        
+        super(OnlyConvSeperateValueBigger, self).__init__(mask_actions)
+    
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(10, 32, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 64, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(64, 128, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(128, 9, kernel_size=9, padding = 4), std=0.01),)
+        
+        self.critic = nn.Sequential(
+            nn.Flatten(),
+            layer_init(nn.Linear(810, 128)),
+            nn.Tanh(),
+            layer_init(nn.Linear(128, 256)),
+            nn.Tanh(),
+            layer_init(nn.Linear(256, 1), std=1.0),
+        )
+
+
+    def get_value(self, obs):
+
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        return self.critic(obs)
+        
+    def get_value_and_logits(self, obs : torch.Tensor):
+        
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        values = self.critic(obs)
+        
+        logits = self.actor(obs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        
+        
+        return values, logits
+        

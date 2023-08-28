@@ -87,6 +87,9 @@ class SudokuEnv_v0(gymnasium.Env):
 
 
 
+    
+
+
 class SudokuEnv_x1(gymnasium.Env):
     metadata = {'render_modes': ['human', 'rgb_array'],
                 'render_fps' : 1}
@@ -102,7 +105,7 @@ class SudokuEnv_x1(gymnasium.Env):
         self.action_space = spaces.MultiDiscrete([9, 9, 9])
         self.observation_space = spaces.Box(low=0, high=9, shape=(9, 9), dtype=np.int32)
         
-        self.reward_range = (-1, 1)
+        self.reward_range = (-1, 100)
         
         self._generate_field()
         
@@ -172,6 +175,19 @@ class SudokuEnv_x1(gymnasium.Env):
         # Implement cleanup logic if needed
         pass
 
+class SudokuEnv_x1n(SudokuEnv_x1):
+    
+    def __init__(self, difficulty, factor_in_density=False, upper_bound_missing_digist=None, render_mode="human"):
+        super().__init__(difficulty, factor_in_density, upper_bound_missing_digist, render_mode)
+        
+    def step(self, action):
+        
+        field, reward, terminated, trunated, info =  super().step(action)
+        
+        reward = ((reward + 1) / 55.5 ) - 1
+        
+        return field, reward, terminated, trunated, info
+        
 
 class SudokuEnv_x0(gymnasium.Env):
     
@@ -252,8 +268,9 @@ class SudokuEnv_x0(gymnasium.Env):
         # Implement cleanup logic if needed
         pass
     
-    
 
+def create_sudoku_env_x1n(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
+    return SudokuEnv_x1n(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
     
 def create_sudoku_env_v0(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
     return SudokuEnv_v0(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
