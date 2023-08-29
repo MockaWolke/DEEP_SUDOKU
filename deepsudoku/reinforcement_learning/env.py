@@ -194,10 +194,11 @@ class SudokuEnv_x0(gymnasium.Env):
     metadata = {'render_modes': ['human', 'none'],
                 'render_fps' : 1}
     
-    def __init__(self, size = 3, render_mode = "none"):
+    def __init__(self, size = 3, render_mode = "none", missing_digits = 3):
         self.render_mode = render_mode
         self.size = size
         self.square_size = np.square(self.size)
+        self.missing_digits = missing_digits
         
         # Define action and observation spaces
         #Discrete Action space
@@ -209,7 +210,7 @@ class SudokuEnv_x0(gymnasium.Env):
         self._generate_field()
         
     def _generate_field(self):
-        self.field, self.solution = self.generator.generate_one()
+        self.field, self.solution = self.generator.generate_one(missing_digits=self.missing_digits)
     
     def reset(self, seed = None, options = None):
         self._generate_field()
@@ -230,20 +231,18 @@ class SudokuEnv_x0(gymnasium.Env):
         terminated = False
         
         if self.field[y, x] == 0 and self.solution[y, x] == number:
+            
+            reward = 1
+            
             self.field[y, x] = number
             
             if np.array_equal(self.field, self.solution):
                 terminated = True    
-                reward = 1
-                #print("env solved")
+                reward = 100
+        
         else:
-            if self.field[y, x] != 0:
-                print("invalid action")
             reward = -1
             terminated = True
-
-        if terminated:
-            self.reset()
         
         return self.field, reward, terminated, False, {}  # Returning observation, reward, terminated, truncated, and info dictionary
     
@@ -275,8 +274,8 @@ def create_sudoku_env_x1n(difficulty, factor_in_density=False, upper_bound_missi
 def create_sudoku_env_v0(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
     return SudokuEnv_v0(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
 
-def create_sudoku_env_v1(render_mode = "none", size = 3):
-    return SudokuEnv_x0(size = size, render_mode = render_mode)
+def create_sudoku_env_v1(render_mode = "none", size = 3, missing_digits=3):
+    return SudokuEnv_x0(size = size, render_mode = render_mode, missing_digits=missing_digits)
 
 def create_sudoku_env_x1(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
     return SudokuEnv_x1(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)

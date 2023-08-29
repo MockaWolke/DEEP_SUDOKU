@@ -56,16 +56,19 @@ class Generator:
     #TODO implement very simple and fast generator for testing purposes
     def __init__(self, size):
         self.size = size
+        self.sq_size = np.square(self.size)
         #size**2 = row/ column length of sudoku
 
-    def generate_one(self):
+    def generate_one(self, missing_digits = 3):
         # return size**2 x size**2 np array representing the sudoku field
         # with some missing ditits and the solution of the field
+        assert 0 <= missing_digits <= self.sq_size, "invalid number of missing digits"
         sol = construct_puzzle_solution(self.size)
 
         # Stupid approach for removing fields so that the solution is still unique: just do pairwise multiplication
         # with a random permutation matrix
-        P = np.eye(np.square(self.size), dtype=np.int32) 
+        P = np.eye(self.sq_size, k=(self.sq_size - missing_digits), dtype=np.int32) 
+
         np.random.shuffle(P)  # shuffles rows
 
         return np.multiply(sol, 1-P), sol

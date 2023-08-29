@@ -5,17 +5,18 @@ import random
 
 
 class PPO_MultiDiscrete_Environment_Wrapper:
-    def __init__(self, environment_name, NUM_ENVS, action_mask=None, **env_kwargs):
+    def __init__(self, environment_name, NUM_ENVS, action_mask=None, preprocessing_function=lambda x: x, **env_kwargs):
         self.num_envs = NUM_ENVS
         self.action_mask = action_mask
         # We use vectorized environments (Implementation Detail 1)
         #self.envs = envs = gym.vector.make('CartPole-v1', num_envs=NUM_ENVS)
         self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS, **env_kwargs)
         self.current_state, _ = self.envs.reset()
+        self.preprocess = preprocessing_function
 
     def sample(self, model):
         old_observation = self.current_state
-        q_values = model(self.current_state) #get q values for current state
+        q_values = model(self.preprocess(self.current_state)) #get q values for current state
         # Q_values are logits, we convert them to a categorical distribution to sample
         if self.action_mask:
             masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
@@ -56,17 +57,18 @@ class PPO_MultiDiscrete_Environment_Wrapper:
 
 
 class PPO_Discrete_Environment_Wrapper:
-    def __init__(self, environment_name, NUM_ENVS, action_mask=None, **env_kwargs):
+    def __init__(self, environment_name, NUM_ENVS, action_mask=None, preprocessing_function=lambda x: x, **env_kwargs):
         self.num_envs = NUM_ENVS
         self.action_mask = action_mask
         # We use vectorized environments (Implementation Detail 1)
         #self.envs = envs = gym.vector.make('CartPole-v1', num_envs=NUM_ENVS)
         self.envs = gym.vector.make(environment_name, num_envs=NUM_ENVS, **env_kwargs)
         self.current_state, _ = self.envs.reset()
+        self.preprocess = preprocessing_function
 
     def sample(self, model):
         old_observation = self.current_state
-        q_values = model(self.current_state) #get q values for current state
+        q_values = model(self.preprocess(self.current_state)) #get q values for current state
         # Q_values are logits, we convert them to a categorical distribution to sample
         if self.action_mask:
             masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
@@ -140,12 +142,12 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
         #TODO: Can be made more efficient?
         values = np.zeros_like(D["rewards"], dtype=np.float32)
         for env_ind in range(len(D["observations"])):
-            values[env_ind] = tf.reshape(V(D["observations"][env_ind]), (-1))
+            values[env_ind] = tf.reshape(V(env.preprocess(D["observations"][env_ind])), (-1))
         #
         advantages = np.zeros_like(D["rewards"], dtype=np.float32)
         # Most environments will not be terminated at the last step. We estimate the rest-reward after the last step
         # as the value function for the next observation.
-        advantages[:,-1] = D["rewards"][:,-1] + GAMMA * tf.reshape(V(ensuing_observation), (-1)) * (1-D["terminateds"][:,-1]) - values[:,-1]
+        advantages[:,-1] = D["rewards"][:,-1] + GAMMA * tf.reshape(V(env.preprocess(ensuing_observation)), (-1)) * (1-D["terminateds"][:,-1]) - values[:,-1]
         for ind in reversed(range(STEPS_PER_TRAJECTORY-1)):
             # The GAE(t) = delta + (GAMMA*LAMBDA)*GAE(t+1) with delta = r_t + gamma * V(s_t+1) - V(s_t)
             # If a state s_t is terminal, V(s_t+1) should be disregarded, since the next state does not belong to the episode anymore
@@ -189,10 +191,10 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
                     # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
                     # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
                     # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
-                        new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=2)
+                        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=2)
                         new_logits = tf.reduce_sum(new_logits, axis=-1)
                     else:
-                        new_logits = tf.gather(pi(mb_obs), mb_acts, batch_dims=1)
+                        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=1)
                     # for ppo clip, we want pi(s,a)/pi_old(s,a) = exp(log(pi(s,a))-log(pi_old(s,a)))
                     logratios = new_logits - mb_old_logits
                     ratios = tf.math.exp(logratios)
@@ -213,7 +215,7 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
                 ########################################################################################################
                 # 7: Fit value function by regression on mean-squared error:
                 with tf.GradientTape() as val_tape:
-                    values = V(mb_obs)
+                    values = V(env.preprocess(mb_obs))
                     # Implementation Detail 9 not implemented, as it may hurt performance
                     value_loss = tf.reduce_mean(tf.square(values - rewards_to_go[minibatch_inds]))
                 value_gradients = val_tape.gradient(value_loss, V.trainable_variables) #get
