@@ -14,12 +14,12 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         self.current_state, _ = self.envs.reset()
         self.preprocess = preprocessing_function
 
-    def sample(self, model):
+    def sample(self, model, epsilon = 1):
         old_observation = self.current_state
         q_values = model(self.preprocess(self.current_state)) #get q values for current state
         # Q_values are logits, we convert them to a categorical distribution to sample
         if self.action_mask:
-            masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
+            masked_logits = np.array([self.action_mask(obs_, logits_, epsilon = epsilon) for obs_, logits_ in zip(old_observation, q_values.numpy())])
         else:
             masked_logits = q_values
 
@@ -39,15 +39,15 @@ class PPO_MultiDiscrete_Environment_Wrapper:
         self.current_state = new_observation #update current state after environment did step
         return (old_observation, action, reward, new_observation, terminated, logprob)
     
-    def collect_trajectories(self, model, length):
-        old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+    def collect_trajectories(self, model, length, epsilon = 1):
+        old_obs, act, rew, new_obs, term, log_probs = self.sample(model, epsilon=epsilon)
         data = {"observations": np.expand_dims(old_obs, axis=1), 
                 "actions": np.expand_dims(act, axis=1), 
                 "rewards": rew, 
                 "terminateds": term,
                 "log_prob": log_probs}
         for i in range(length-1):
-            old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+            old_obs, act, rew, new_obs, term, log_probs = self.sample(model, epsilon=epsilon)
             data["observations"] = np.column_stack((data["observations"], np.expand_dims(old_obs, axis=1)))
             data["actions"] = np.column_stack((data["actions"], np.expand_dims(act, axis=1)))
             data["rewards"] = np.column_stack((data["rewards"], rew))
@@ -66,12 +66,13 @@ class PPO_Discrete_Environment_Wrapper:
         self.current_state, _ = self.envs.reset()
         self.preprocess = preprocessing_function
 
-    def sample(self, model):
+    def sample(self, model, epsilon = 1):
         old_observation = self.current_state
         q_values = model(self.preprocess(self.current_state)) #get q values for current state
+
         # Q_values are logits, we convert them to a categorical distribution to sample
         if self.action_mask:
-            masked_logits = np.array([self.action_mask(obs_, logits_) for obs_, logits_ in zip(old_observation, q_values.numpy())])
+            masked_logits = np.array([self.action_mask(obs_, logits_, epsilon=epsilon) for obs_, logits_ in zip(old_observation, q_values.numpy())])
         else:
             masked_logits = q_values
 
@@ -84,15 +85,15 @@ class PPO_Discrete_Environment_Wrapper:
         self.current_state = new_observation #update current state after environment did step
         return (old_observation, action, reward, new_observation, terminated, logprob)
     
-    def collect_trajectories(self, model, length):
-        old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+    def collect_trajectories(self, model, length, epsilon = 1):
+        old_obs, act, rew, new_obs, term, log_probs = self.sample(model, epsilon=epsilon)
         data = {"observations": np.expand_dims(old_obs, axis=1), 
                 "actions": np.expand_dims(act, axis=1), 
                 "rewards": rew, 
                 "terminateds": term,
                 "log_prob": log_probs}
         for i in range(length-1):
-            old_obs, act, rew, new_obs, term, log_probs = self.sample(model)
+            old_obs, act, rew, new_obs, term, log_probs = self.sample(model, epsilon=epsilon)
             data["observations"] = np.column_stack((data["observations"], np.expand_dims(old_obs, axis=1)))
             data["actions"] = np.column_stack((data["actions"], np.expand_dims(act, axis=1)))
             data["rewards"] = np.column_stack((data["rewards"], rew))
@@ -114,17 +115,19 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
 
     kl_approx = 0
     mean_rewards = 0
+    eps = 0
     ########################################################################################################
     # 2: for k = 0, 1, 2, ... do
     for k in range(TRAIN_EPOCHS):
-        print("epoch: ", k, " ; KL: ", kl_approx, " ; LR: ", pi_optimizer.learning_rate.numpy(), " ; MR: ", mean_rewards)
+        print("epoch: ", k, " ; KL: ", kl_approx, " ; LR: ", pi_optimizer.learning_rate.numpy(), " ; MR: ", mean_rewards, " ; EPS: ", eps)
     ########################################################################################################
 
 
         ########################################################################################################
         # 3: Collect set of trajectories D_k = {τ_i} by running policy π_k = pi(θ_k) in the environment.
         print("Collection")
-        D, ensuing_observation = env.collect_trajectories(pi, STEPS_PER_TRAJECTORY)
+        eps = 1/(1+10*np.exp(-(-7.3*((k/TRAIN_EPOCHS)-0.9)))) #logistic decay
+        D, ensuing_observation = env.collect_trajectories(pi, STEPS_PER_TRAJECTORY, epsilon = eps)
         mean_rewards = np.mean(D["rewards"])
         #D = {"observations": [environment][timestep][observation], 
         #     "actions": [environment][timestep][actions], 
