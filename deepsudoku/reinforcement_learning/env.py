@@ -325,7 +325,7 @@ class SudokuEnv_x0(gymnasium.Env):
             
             if np.array_equal(self.field, self.solution):
                 terminated = True    
-                reward = 100
+                reward = 1
         
         else:
             reward = -1
