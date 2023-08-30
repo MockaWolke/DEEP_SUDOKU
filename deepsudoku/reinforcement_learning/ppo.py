@@ -101,6 +101,21 @@ class PPO_Discrete_Environment_Wrapper:
             data["log_prob"] = np.column_stack((data["log_prob"], log_probs))
         return data, new_obs
 
+    def test_policy(self, pi, episodes):
+        self.current_state, _ = self.envs.reset()
+        episode_lengths = []
+        length_counter = np.zeros(self.num_envs)
+        for k in range(episodes):
+            qs = pi(self.preprocess(self.current_state))
+            act = np.argmax(qs, axis=1)
+            self.current_state, _, terminated, _, _ = self.envs.step(act)
+            length_counter += 1
+            episode_lengths.append(length_counter[np.nonzero(terminated)])
+            length_counter *= (1-terminated)
+        avg_episode_length = np.mean(np.concatenate(episode_lengths).flatten())
+        return avg_episode_length
+
+
 
 
 def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP_RATIO = 0.2,
