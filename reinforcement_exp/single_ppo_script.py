@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument("--agent", type=str, default="Single_Action_MLP_Onehot",
         help="Which agent")
     
-    parser.add_argument("--upper-bound-missing-digits", type=int, default="5",
+    parser.add_argument("--upper-bound-missing-digits", type=int, default= None,
         help="Which agent")
     
     parser.add_argument("--num-envs", type=int, default=8,
@@ -87,7 +87,7 @@ def parse_args():
 
 def make_env(gym_id, seed, idx):
     def thunk():
-        env = gym.make(gym_id, upper_bound_missing_digist = args.upper_bound_missing_digits)
+        env = gym.make(gym_id, difficulty = "easy", upper_bound_missing_digist = args.upper_bound_missing_digits, )
         env = gym.wrappers.RecordEpisodeStatistics(env)
 
         return env
@@ -153,7 +153,9 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
     num_updates = args.total_timesteps // args.batch_size
 
-    for update in tqdm.tqdm(range(1, num_updates + 1)):
+    process_bar = tqdm.tqdm(range(1, num_updates + 1))
+
+    for update in process_bar:
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (update - 1.0) / num_updates
@@ -298,8 +300,12 @@ if __name__ == "__main__":
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         writer.add_scalar("losses/explained_variance", explained_var, global_step)
-        print("SPS:", int(global_step / (time.time() - start_time)))
+        process_bar.set_description(f"SPS: {int(global_step / (time.time() - start_time))}")
         writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
     envs.close()
     writer.close()
+    
+    save_path = os.path.join(f"runs/{run_name}", "final_model.pth")
+    print("Save Final Model")
+    torch.save(agent.state_dict(), save_path)
