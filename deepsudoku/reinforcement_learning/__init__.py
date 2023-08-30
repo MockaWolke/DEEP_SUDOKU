@@ -66,6 +66,9 @@ gymnasium.register(
         "factor_in_density": False,
         "upper_bound_missing_digist": None,
         "render_mode": "human",
+        "easy_fraq" : 0,
+        "easy_start" : 15,
+        "easy_mode" : "range"
     },
     max_episode_steps=81,
 )

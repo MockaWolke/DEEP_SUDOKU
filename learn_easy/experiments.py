@@ -1,11 +1,13 @@
 import deepsudoku.reinforcement_learning
-from agents import OnlyConvSeperateValueBigger, SeperateOnlyConv
+from agents import Bigger, SeperateOnlyConv, CriticAsConv, CriticAsConvBigger
 import gymnasium as gym
 import torch
 
 Single_Action_Agents = {
     "SeperateOnlyConv" :SeperateOnlyConv,
-    "OnlyConvSeperateValueBigger" :OnlyConvSeperateValueBigger,
+    "Bigger" :Bigger,
+    "CriticAsConv" : CriticAsConv,
+    "CriticAsConvBigger": CriticAsConvBigger
 }
     
 

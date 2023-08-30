@@ -137,18 +137,108 @@ class SeperateOnlyConv(AgentBarebone):
         return values, logits
         
         
-class OnlyConvSeperateValueBigger(AgentBarebone):
+
+        
+class CriticAsConv(AgentBarebone):
     
     def __init__(self, mask_actions):
         
-        super(OnlyConvSeperateValueBigger, self).__init__(mask_actions)
+        super(CriticAsConv, self).__init__(mask_actions)
+    
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding = 4), std=0.01),)
+        
+        self.critic = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init(nn.Linear(9 * 9 * 32, 1), std=1.0)
+            )
+            
+
+
+    def get_value(self, obs):
+
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        return self.critic(obs)
+        
+    def get_value_and_logits(self, obs : torch.Tensor):
+        
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        values = self.critic(obs)
+        
+        logits = self.actor(obs).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        
+        
+        return values, logits
+        
+class CriticAsConvBigger(AgentBarebone):
+    
+    def __init__(self, mask_actions):
+        
+        super(CriticAsConvBigger, self).__init__(mask_actions)
     
         self.actor = nn.Sequential(
             layer_init(nn.Conv2d(10, 32, kernel_size=3, padding = 1)),
             nn.ReLU(),
             layer_init(nn.Conv2d(32, 64, kernel_size=3, padding = 1)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(64, 128, kernel_size=3, padding = 1)),
+            layer_init(nn.Conv2d(64, 128, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(128, 9, kernel_size=9, padding = 4), std=0.01),)
+        
+        self.critic = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init(nn.Linear(9 * 9 * 32, 1), std=1.0)
+            )
+            
+
+
+    def get_value(self, obs):
+
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        return self.critic(obs)
+        
+    def get_value_and_logits(self, obs : torch.Tensor):
+        
+        obs = torch.nn.functional.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float().permute(0, 3, 2, 1)
+
+        values = self.critic(obs)
+        
+        logits = self.actor(obs).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        
+        
+        return values, logits
+        
+class Bigger(AgentBarebone):
+    
+    def __init__(self, mask_actions):
+        
+        super(Bigger, self).__init__(mask_actions)
+    
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(10, 32, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 64, kernel_size=3, padding = 1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(64, 128, kernel_size=9, padding = 4)),
             nn.ReLU(),
             layer_init(nn.Conv2d(128, 9, kernel_size=9, padding = 4), std=0.01),)
         

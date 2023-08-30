@@ -181,12 +181,17 @@ class SudokuEnv_x2(gymnasium.Env):
     metadata = {'render_modes': ['human', 'rgb_array'],
                 'render_fps' : 1}
     
-    def __init__(self, difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = "human"):
+    def __init__(self, difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = "human", easy_fraq = 0, easy_start = 15, easy_mode = "range"):
         
         self.difficulty = difficulty
         self.factor_in_density = factor_in_density
         self.upper_bound_missing_digist = upper_bound_missing_digist
         self.render_mode = render_mode
+        self.easy_fraq = easy_fraq
+        self.easy_start = easy_start
+        self.easy_mode = easy_mode
+        
+        assert self.easy_mode in ["range", "precise"]
         
         # Define action and observation spaces
         self.action_space = spaces.MultiDiscrete([9, 9, 9])
@@ -198,7 +203,17 @@ class SudokuEnv_x2(gymnasium.Env):
         
     def _generate_field(self):
         solver = Solver()
-        generator = Generator('9', self.difficulty, solver, self.upper_bound_missing_digist)
+        
+        upper_bound = self.upper_bound_missing_digist
+        
+        if self.easy_fraq != 0:
+            
+            if np.random.uniform(0,1) < self.easy_fraq:
+                
+                upper_bound = np.random.randint(1, self.easy_start + 1) if self.easy_mode == "range" else self.easy_start
+            
+        
+        generator = Generator('9', self.difficulty, solver, upper_bound)
       
         quiz, solution = generator.generate_one(self.factor_in_density)
         
@@ -368,5 +383,5 @@ def create_sudoku_env_x1(difficulty, factor_in_density=False, upper_bound_missin
     return SudokuEnv_x1(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
 
 
-def create_sudoku_env_x2(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human'):
-    return SudokuEnv_x2(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode)
+def create_sudoku_env_x2(difficulty, factor_in_density=False, upper_bound_missing_digist = None, render_mode = 'human',easy_fraq = 0, easy_start = 15, easy_mode = "range"):
+    return SudokuEnv_x2(difficulty, factor_in_density,upper_bound_missing_digist = upper_bound_missing_digist, render_mode = render_mode,easy_fraq = easy_fraq, easy_start = easy_start, easy_mode = easy_mode)
