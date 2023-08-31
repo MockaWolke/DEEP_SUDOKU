@@ -118,6 +118,35 @@ class PPO_Discrete_Environment_Wrapper:
 
 
 
+@tf.function
+def pi_tape_function(multi_discrete, mb_obs, mb_acts, pi, mb_old_logits, mb_advantages, CLIP_RATIO, env):
+    if multi_discrete:
+    # calculating new logits from multi-discrete action space
+    # pi(D["observations"]) is now an array of [action][action_subspace][logprobs]
+    # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
+    # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
+    # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
+        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=2)
+        new_logits = tf.reduce_sum(new_logits, axis=-1)
+    else:
+        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=1)
+    # for ppo clip, we want pi(s,a)/pi_old(s,a) = exp(log(pi(s,a))-log(pi_old(s,a)))
+    logratios = new_logits - mb_old_logits
+    ratios = tf.math.exp(logratios)
+    surrogate_objective1 = ratios * mb_advantages
+    # Implementation Detail 8: clip surrogate objective
+    surrogate_objective2 = tf.clip_by_value(ratios, 1 - CLIP_RATIO, 1 + CLIP_RATIO) * mb_advantages
+    pi_loss = -tf.reduce_mean(tf.minimum(surrogate_objective1, surrogate_objective2))
+    return pi_loss, ratios, logratios
+
+@tf.function
+def val_tape_function(mb_obs, rewards_to_go, V, env):
+    values = V(env.preprocess(mb_obs))
+    # Implementation Detail 9 not implemented, as it may hurt performance
+    value_loss = tf.reduce_mean(tf.square(values - rewards_to_go))
+    return value_loss
+
+
 def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.99, LAMBDA = 0.95, CLIP_RATIO = 0.2,
         MAX_GRAD_NORM = 0.5, TRAIN_EPOCHS = 2500, NUM_UPDATE_EPOCHS = 1, MINIBATCH_SIZE = 50, 
         LEARNING_RATE_START = 0.005, LEARNING_RATE_DECAY_PER_EPOCH = None):
@@ -203,23 +232,7 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
                 ########################################################################################################
                 # 6: Update the policy by maximizing the PPO-Clip objective
                 with tf.GradientTape() as pi_tape:
-                    if multi_discrete:
-                    # calculating new logits from multi-discrete action space
-                    # pi(D["observations"]) is now an array of [action][action_subspace][logprobs]
-                    # D["actions"] is a array of [actions][action_subspace], where [action_subspace] contains the index of the chosen action
-                    # We need to gather the logprobs of the chosen subactions and add them to get an array of shape [action]
-                    # NOTE: Setting batch_dims=2 only allows for simply nested multi-discrete action spaces
-                        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=2)
-                        new_logits = tf.reduce_sum(new_logits, axis=-1)
-                    else:
-                        new_logits = tf.gather(pi(env.preprocess(mb_obs)), mb_acts, batch_dims=1)
-                    # for ppo clip, we want pi(s,a)/pi_old(s,a) = exp(log(pi(s,a))-log(pi_old(s,a)))
-                    logratios = new_logits - mb_old_logits
-                    ratios = tf.math.exp(logratios)
-                    surrogate_objective1 = ratios * mb_advantages
-                    # Implementation Detail 8: clip surrogate objective
-                    surrogate_objective2 = tf.clip_by_value(ratios, 1 - CLIP_RATIO, 1 + CLIP_RATIO) * mb_advantages
-                    pi_loss = -tf.reduce_mean(tf.minimum(surrogate_objective1, surrogate_objective2))
+                    pi_loss, ratios, logratios = pi_tape_function(multi_discrete, mb_obs, mb_acts, pi, mb_old_logits, mb_advantages, CLIP_RATIO, env)
                 pi_gradients = pi_tape.gradient(pi_loss, pi.trainable_variables) #get
                 # Implementation Detail 11: clip gradients
                 pi_gradients, _ = tf.clip_by_global_norm(pi_gradients, MAX_GRAD_NORM)
@@ -233,9 +246,7 @@ def PPO(env, pi, V, multi_discrete=False, STEPS_PER_TRAJECTORY = 50, GAMMA = 0.9
                 ########################################################################################################
                 # 7: Fit value function by regression on mean-squared error:
                 with tf.GradientTape() as val_tape:
-                    values = V(env.preprocess(mb_obs))
-                    # Implementation Detail 9 not implemented, as it may hurt performance
-                    value_loss = tf.reduce_mean(tf.square(values - rewards_to_go[minibatch_inds]))
+                    value_loss = val_tape_function(mb_obs, rewards_to_go[minibatch_inds], V, env)
                 value_gradients = val_tape.gradient(value_loss, V.trainable_variables) #get
                 # Implementation Detail 11 cont.: clip gradients
                 value_gradients, _ = tf.clip_by_global_norm(value_gradients, MAX_GRAD_NORM)
