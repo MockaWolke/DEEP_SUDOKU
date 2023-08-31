@@ -138,7 +138,7 @@ def eval_greedy(agent):
 
     terminated = False
     episodic_reward = 0
-    episode_length = 0
+    episode_length = 1
     win = False
 
     while not terminated:
@@ -240,7 +240,17 @@ if __name__ == "__main__":
         checkpoint = torch.load(args.ckpt_dir_load)
         agent.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        optimizer.param_groups[0]["lr"] = checkpoint['learning_rate']
+        
+        if checkpoint['learning_rate'] != 0:
+        
+            optimizer.param_groups[0]["lr"] = checkpoint['learning_rate']
+            
+        else:
+            
+            print("Saved learning rate was 0. We will use:", args.learning_rate)
+            
+            optimizer.param_groups[0]["lr"] = args.learning_rate
+            
         global_step = checkpoint['step_count']
 
 
@@ -249,7 +259,7 @@ if __name__ == "__main__":
             torch.save({
             'model_state_dict': agent.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
-            'learning_rate': int(optimizer.param_groups[0]["lr"]), 
+            'learning_rate': optimizer.param_groups[0]["lr"], 
             'step_count': global_step   
         }, path)
 
@@ -272,6 +282,10 @@ if __name__ == "__main__":
         
 
         while True:
+            
+            old_global_step = global_step
+            start_time = time.time()
+            
             # Annealing the rate if instructed to do so.
             if args.anneal_lr and not until_ever:
                 frac = 1.0 - (update - 1.0) / num_updates
@@ -306,7 +320,7 @@ if __name__ == "__main__":
                 
                 unique, counts = np.unique(test_lengths, return_counts= True)
                 
-                highest_error = 27 - unique[np.argmax(counts)]
+                highest_error = 27 - unique[np.argmax(counts)] + 1
                 
                 writer.add_scalar("eval/highest_error", highest_error, global_step)
                 
@@ -321,7 +335,7 @@ if __name__ == "__main__":
 
             if update % args.ckpt_freq == 0:
                 
-                check_point_model(os.path.join(chkpt_dir,f"{update}.pth"))
+                check_point_model(os.path.join(chkpt_dir,f"{global_step}.pth"))
             
             
             average_return = []
@@ -494,7 +508,7 @@ if __name__ == "__main__":
             writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
             writer.add_scalar("losses/explained_variance", explained_var, global_step)
             writer.add_scalar(
-                "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+                "charts/SPS", int((global_step - old_global_step) / (time.time() - start_time)), global_step
             )
 
 
@@ -510,9 +524,4 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
 
-    check_point_model(os.path.join(chkpt_dir,f"final.pth"))
-
-
-    save_path = os.path.join(f"runs/{run_name}", "final_model.pth")
-    print("Save Final Model")
-    torch.save(agent.state_dict(), save_path)
+    check_point_model(os.path.join(chkpt_dir,f"{global_step}.pth"))
