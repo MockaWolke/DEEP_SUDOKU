@@ -9,7 +9,14 @@ warnings.filterwarnings(
     message=".*A Box observation space.*",
 )
 
-from deepsudoku.reinforcement_learning.env import create_sudoku_env_v0, create_sudoku_env_v1, create_sudoku_env_x1, create_sudoku_env_x1n, create_sudoku_env_x2
+from deepsudoku.reinforcement_learning.env import (
+    create_sudoku_env_v0,
+    create_sudoku_env_v1,
+    create_sudoku_env_x1,
+    create_sudoku_env_x1n,
+    create_sudoku_env_x2,
+    create_sudoku_nostop0,
+)
 
 gymnasium.register(
     id="Sudoku-v0",
@@ -26,10 +33,7 @@ gymnasium.register(
 gymnasium.register(
     id="Sudoku-x0",
     entry_point=create_sudoku_env_v1,
-    kwargs={
-        "size": 3,
-        "render_mode": "none"
-    },
+    kwargs={"size": 3, "render_mode": "none"},
     max_episode_steps=81,
 )
 
@@ -66,9 +70,26 @@ gymnasium.register(
         "factor_in_density": False,
         "upper_bound_missing_digist": None,
         "render_mode": "human",
-        "easy_fraq" : 0,
-        "easy_start" : 15,
-        "easy_mode" : "range"
+        "easy_fraq": 0,
+        "easy_start": 15,
+        "easy_mode": "range",
+    },
+    max_episode_steps=81,
+)
+
+gymnasium.register(
+    id="Sudoku-nostop0",
+    entry_point=create_sudoku_nostop0,
+    kwargs={
+        "difficulty": "easy",
+        "factor_in_density": False,
+        "upper_bound_missing_digist": None,
+        "render_mode": "human",
+        "easy_fraq": 0,
+        "easy_start": 15,
+        "easy_mode": "range",
+        "use_random_starting_point" : True,
+        "cut_off_limit" : 10,
     },
     max_episode_steps=81,
 )

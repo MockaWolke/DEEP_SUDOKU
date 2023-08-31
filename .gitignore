@@ -9,7 +9,7 @@ learn_easy/*.sh
 learn_easy/*.pth
 logs_copied.csv
 logs.csv
-
+saved_sudoku_junks/
 
 
 # Byte-compiled / optimized / DLL files

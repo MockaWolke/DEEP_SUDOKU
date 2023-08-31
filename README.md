@@ -1,6 +1,14 @@
 # DEEP SUDOKU
 
+## TODO
 
+- Sudokus speichern
+- anderee Env ohne resets
+- self attention
+- integrated gradients 
+- linear probes
+- ensemble via legal transformations
+- paper schreiben
 
 
 

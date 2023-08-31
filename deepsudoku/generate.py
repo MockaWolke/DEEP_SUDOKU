@@ -7,7 +7,9 @@ import warnings
 from deepsudoku.norvig_solver import NorvigSolver
 import numpy as np
 from typing import Dict, Set, Tuple, List
-
+import os
+import glob
+import pickle
 
 def recu_generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
     
@@ -134,12 +136,14 @@ class Generator:
         difficulty: str,
         solver,
         upper_bound_missing_digist: int = None,
+        use_random_starting_point: bool = True,
     ):
 
         """The starting point for the generator must be a solvable puzzle."""
         board = None
 
         self.solver = solver
+        self.use_random_starting_point = use_random_starting_point
 
         if difficulty in self.thresholds.keys():
             thresholds = self.thresholds[difficulty][side_length]
@@ -167,6 +171,26 @@ class Generator:
             else:
                 
                 self.second_cutoff = upper_bound_missing_digist - self.first_cutoff
+                
+                
+        self.difficulty = difficulty
+            
+        self.starting_points = None
+        
+        if not self.use_random_starting_point:
+            
+            options = glob.glob(os.path.join(REPO_PATH,"saved_sudoku_junks/*.pkl"))
+            
+            chosen = random.choice(options)
+            
+            with open(chosen, "rb") as file:
+                
+                self.starting_points = pickle.load(file)
+                
+            
+            
+            
+        
 
     def remove_values_1(self, board, cutoff):
         """Do the first pass at removing values from cells.
@@ -224,17 +248,37 @@ class Generator:
 
         return self.solver.is_solvable(board)
 
-    def generate_one(self, factor_in_density: bool = True) -> dict:
+    def generate_one(self, factor_in_density: bool = True, cut_off:int = None) -> dict:
         """Generate a new puzzle and solution.
         The returned dictionary has a 'puzzle' entry and a 'solution' entry.
         """
+        
+        if self.use_random_starting_point:
 
-        solution = construct_puzzle_solution()
+         
+            solution = construct_puzzle_solution()
+
+
+        else: 
+            
+            solution = random.choice(self.starting_points)
+            
+            solution = [int(c) for c in solution]
+            
 
         board = Board(solution.copy())
 
-        self.remove_values_1(board, self.first_cutoff)
-        self.reduce_pass_2(board, self.second_cutoff, factor_in_density)
+        if cut_off is None:
+
+            self.remove_values_1(board, self.first_cutoff)
+            
+        else:
+            
+            self.remove_values_1(board, cut_off)
+            
+        
+        if self.difficulty != "easy":
+            self.reduce_pass_2(board, self.second_cutoff, factor_in_density)
 
         solution = "".join([str(c) for c in solution])
         puzzle = self.board_as_string(board)

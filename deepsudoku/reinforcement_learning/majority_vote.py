@@ -69,8 +69,6 @@ def create_permutations(matrix, count):
 
     return permutations
 
-def preprocessing(observation):
-    return tf.one_hot(observation, 10, axis=-1)
 
 def majority_vote(pi, obs, nvoters):
     """Perform majority vote
@@ -87,12 +85,9 @@ def majority_vote(pi, obs, nvoters):
         obs_ = np.array(perm) #a 2d numpy array representing the sudoku, with elements eg. between 0 and 9
         
         # gather discrete action act from policy
-        qs = pi(tf.expand_dims(preprocessing(np.array(perm)), 0))
-        act = np.argmax(qs)
-
-        # unravel discrete action and apply to an empty board
+        y,x,n = pi(np.array(perm)[None, : ])
+        
         empty_board = np.zeros_like(obs_)
-        y,x,n = np.unravel_index(act,(9,9,9))
         empty_board[y,x] = n+1
 
         # reverse transform on the empty board
