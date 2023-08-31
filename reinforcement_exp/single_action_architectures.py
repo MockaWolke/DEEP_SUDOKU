@@ -80,6 +80,19 @@ class AgentBarebone(nn.Module):
             action = probs.sample()
             
         return action, probs.log_prob(action), probs.entropy(), value
+    
+    
+    def get_greedy_action(self, obs):
+        
+        value, logits = self.get_value_and_logits(obs)
+
+
+        action_mask = self.get_action_mask(obs).to(logits.device)
+        
+        logits = torch.where(action_mask, logits, torch.tensor(-1e8).to(logits.device))
+        
+        return torch.argmax(logits, axis = -1)
+
 
 
 class Single_Action_MLP_Onehot(AgentBarebone):
@@ -207,6 +220,8 @@ class SingleOnlyConvActorOnehot(AgentBarebone):
         
         
         return values, logits
+        
+        
         
         
 class OnlyConvSeperateValue(AgentBarebone):

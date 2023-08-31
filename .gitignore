@@ -4,9 +4,13 @@ datasets/
 tdoku/
 .vscode/
 ckpt/
-
+learn_easy/ckpt/
+learn_easy/*.sh
+learn_easy/*.pth
 logs_copied.csv
 logs.csv
+
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
