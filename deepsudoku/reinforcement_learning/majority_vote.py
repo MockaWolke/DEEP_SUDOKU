@@ -2,9 +2,9 @@ import numpy as np
 from functools import reduce
 
 class RowPermutation:
-    def __init__(self, from_, to_):
-        self.from_ = from_
-        self.to_ = to_
+    def __init__(self, from_, to_, band, band_size):
+        self.from_ = from_ + band*band_size
+        self.to_ = to_ + band*band_size
     
     def __call__(self, matrix):
         r = np.copy(matrix)
@@ -12,6 +12,18 @@ class RowPermutation:
         #print("RowPermutation(", self.from_,",",self.to_,"):", r)
         return r
 
+class BandPermutation:
+    def __init__(self, from_, to_, band_size):
+        self.from_ = from_
+        self.to_ = to_
+        self.band_size = band_size
+    
+    def __call__(self, matrix):
+        r = np.copy(matrix)
+        r[self.from_*self.band_size:(self.from_+1)*self.band_size] = matrix[self.to_*self.band_size:(self.to_+1)*self.band_size]
+        r[self.to_*self.band_size:(self.to_+1)*self.band_size] = matrix[self.from_*self.band_size:(self.from_+1)*self.band_size]
+        #print("RowPermutation(", self.from_,",",self.to_,"):", r)
+        return r
 
 class TransposePermutation:
     def __init__(self):
@@ -46,24 +58,29 @@ class SwapDigitsPermutation:
 
 compose = lambda F: reduce(lambda f, g: lambda x: g(f(x)), F)
 
-def random_permutation(msize):
-    inds = np.random.choice(np.arange(msize), size=2, replace=False)
+def random_permutation(band_size):
+    inds = np.random.choice(np.arange(band_size), size=3, replace=False)
     return np.random.choice([
-        RowPermutation(inds[0],inds[1]),
+        RowPermutation(inds[0],inds[1], inds[2], band_size),
+        BandPermutation(inds[0],inds[1], band_size),
         TransposePermutation(),
-        MirrorPermutation(np.random.choice(np.array([0,1]))),
+        #MirrorPermutation(np.random.choice(np.array([0,1]))),
         SwapDigitsPermutation(inds[0],inds[1])
-    ], p=[0.4,0.1,0.1,0.4]) 
+    ], p=[0.25,0.25,0.15,0.35]) 
 
 def create_permutations(matrix, count):
     assert matrix.shape[0] == matrix.shape[1], "matrix not square"
+    band_size = np.sqrt(matrix.shape[0])
+    assert band_size.is_integer(), "Invalid Sudoku size"
+    band_size = band_size.astype(int)
+
     desired_perm_length = 2 + np.emath.logn(matrix.shape[0]*2, count).astype(int)
 
     permutations = {}
     permutations[tuple(map(tuple, matrix))] = [TransposePermutation(), TransposePermutation()]
     
     while len(permutations) < count:
-        rp = [random_permutation(matrix.shape[0]) for i in range(desired_perm_length)]
+        rp = [random_permutation(band_size) for i in range(desired_perm_length)]
         pm = tuple(map(tuple, compose(rp)(matrix)))
         permutations[pm] = rp
 
