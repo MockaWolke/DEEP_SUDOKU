@@ -90,6 +90,8 @@ gymnasium.register(
         "easy_mode": "range",
         "use_random_starting_point" : True,
         "cut_off_limit" : 10,
+        "win_reward" : 1,
+        "fail_penatly" : 0.1,
     },
     max_episode_steps=81,
 )

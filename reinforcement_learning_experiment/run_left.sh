@@ -1,0 +1,4 @@
+bash experiments_settings/different_envs/High_Win_Reward_ENV_longer.sh
+
+cd /home/felix/Desktop/DEEP_SUDOKU/reinforcement_learning_experiment
+

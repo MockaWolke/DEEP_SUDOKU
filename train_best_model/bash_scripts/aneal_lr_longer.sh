@@ -1,0 +1,14 @@
+python ppo_script.py \
+    --exp-name AnealLRLonger \
+    --mask-actions True \
+    --agent SeperateOnlyConv \
+    --eval-freq 50 \
+    --eval-steps 100 \
+    --anneal-lr True \
+    --use-random-starting-point True \
+    --cut-off-limit 20 \
+    --win-reward 3 \
+    --fail-penalty 1 \
+    --total-timesteps 30000000 \
+    --ckpt-dir-load ckpt/Sudoku-nostop0__AnealLR__1__1693510183/28882944.pth \
+    --learning-rate 1e-4

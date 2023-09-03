@@ -287,20 +287,23 @@ class Generator:
 
 
 def generate_game(args):
-    difficulty, factor_in_density, use_tdoku = args
+
+    difficulty, factor_in_density, use_tdoku, upper_bound = args
 
     solver = Solver(use_tdoku)
-    generator = Generator("9", difficulty, solver)
+    generator = Generator("9", difficulty, solver, upper_bound_missing_digist =  upper_bound)
     return generator.generate_one(factor_in_density)
 
 
-def generate_many_games(n_games, n_cpus, difficulty, factor_in_density, use_tdoku):
+def generate_many_games(n_games, n_cpus, difficulty, factor_in_density, use_tdoku, upper_bound):
+    
     with multiprocessing.Pool(n_cpus) as p:
         games = list(
             tqdm.tqdm(
-                p.imap(generate_game, [(difficulty, factor_in_density, use_tdoku)] * n_games),
+                p.imap(generate_game, [(difficulty, factor_in_density, use_tdoku, upper_bound)] * n_games),
                 total=n_games,
             )
         )
+    
     return games
 
