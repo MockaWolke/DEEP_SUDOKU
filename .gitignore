@@ -10,7 +10,8 @@ learn_easy/*.pth
 logs_copied.csv
 logs.csv
 saved_sudoku_junks/
-
+**/cpkt/
+**/final_model.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

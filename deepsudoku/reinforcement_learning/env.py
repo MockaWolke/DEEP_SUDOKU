@@ -307,6 +307,8 @@ class SudokuEnv_nostop0(gymnasium.Env):
         easy_mode="range",
         use_random_starting_point=True,
         cut_off_limit=10,
+        win_reward = 1,
+        fail_penatly = 0.1
     ):
         assert difficulty == "easy"
 
@@ -329,6 +331,10 @@ class SudokuEnv_nostop0(gymnasium.Env):
             "9", self.difficulty, self.solver, None, use_random_starting_point
         )
         self.cut_off_limit = cut_off_limit
+
+        self.win_reward = win_reward
+        self.fail_penatly = fail_penatly
+
 
         self.fail_counter = 0
 
@@ -360,7 +366,7 @@ class SudokuEnv_nostop0(gymnasium.Env):
         terminated = False
 
         if self.field[y, x] == 0 and self.solution[y, x] == number:
-            reward = 3
+            reward += self.win_reward
 
             self.field[y, x] = number
             self.fail_counter = 0
@@ -370,7 +376,7 @@ class SudokuEnv_nostop0(gymnasium.Env):
 
 
         else:
-            reward = -0.1
+            reward -= self.fail_penatly
             self.fail_counter += 1
 
             terminated = self.fail_counter >= self.cut_off_limit
@@ -590,6 +596,8 @@ def create_sudoku_nostop0(
     easy_mode="range",
     use_random_starting_point=True,
     cut_off_limit=10,
+    win_reward = 1,
+    fail_penatly = 0.1
 ):
     return SudokuEnv_nostop0(
         difficulty,
@@ -601,4 +609,6 @@ def create_sudoku_nostop0(
         easy_mode=easy_mode,
         use_random_starting_point=use_random_starting_point,
         cut_off_limit=cut_off_limit,
+        win_reward = win_reward,
+        fail_penatly = fail_penatly,
     )
