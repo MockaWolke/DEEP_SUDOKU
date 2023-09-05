@@ -5,6 +5,7 @@ tdoku/
 .vscode/
 ckpt/
 learn_easy/ckpt/
+learn_easy/
 learn_easy/*.sh
 learn_easy/*.pth
 logs_copied.csv

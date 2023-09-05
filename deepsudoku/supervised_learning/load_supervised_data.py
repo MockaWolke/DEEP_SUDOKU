@@ -2,9 +2,8 @@ import tensorflow as tf
 import os 
 import numpy as np
 import pandas as pd
-from typing import NamedTuple, Dict
+from typing import Dict
 from deepsudoku import REPO_PATH
-from collections import namedtuple
 
 
 def get_data(kind : str, data_path = "all_data"):
@@ -24,13 +23,25 @@ def get_data(kind : str, data_path = "all_data"):
         raise ValueError(f"{path} does note exists")
     
     
+    
     df = pd.read_feather(path)
     
-    assert kind in df.data_type.unique(), f"{kind} not in {df.data_type.unique()}"
+    ds_type_col = "ds_type" if "ds_type" in df.columns else "data_type"
     
-    df = df.query("data_type == @kind")
+    assert kind in df[ds_type_col].unique(), f"{kind} not in {df[ds_type_col].unique()}"
+    
+    
+    if ds_type_col == "ds_type":
+    
+        df = df.query("ds_type == @kind")
+        
+    else: 
+        
+        df = df.query("data_type == @kind")
+        
     
     return df
+
 
 def get_data_by_difficulty_and_origin(kind: str, data_path = "all_data") -> Dict[np.array, np.array]:
     
@@ -62,20 +73,13 @@ def process_data(x, y):
     # Replace '.' with '0' in the input
     x = tf.strings.regex_replace(x, "\.", "0")
 
-    # Convert the strings to int32
-    x = tf.strings.to_number(tf.strings.bytes_split(x), out_type=tf.int32)
-    y = tf.strings.to_number(tf.strings.bytes_split(y), out_type=tf.int32)
+    # Convert the strings to int64
+    x = tf.strings.to_number(tf.strings.bytes_split(x), out_type=tf.int64)
+    y = tf.strings.to_number(tf.strings.bytes_split(y), out_type=tf.int64)
 
     # Reshape the tensors to 9x9
     x = tf.reshape(x, (9, 9))
     y = tf.reshape(y, (9, 9))
-
-    return x, y
-
-def final_preprocess(x,y):
-    
-    x = tf.cast(tf.one_hot(x, 10, axis = -1), tf.float32)
-    y = y - 1
 
     return x, y
 
@@ -84,6 +88,8 @@ def get_tf_dataset(df):
     
     ds = tf.data.Dataset.from_tensor_slices((df.quiz,df.solution))
     
-    ds = ds.map(process_data, tf.data.AUTOTUNE).map(final_preprocess, tf.data.AUTOTUNE)
+    ds = ds.map(process_data, tf.data.AUTOTUNE)
 
     return ds
+
+

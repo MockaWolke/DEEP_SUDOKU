@@ -1,5 +1,5 @@
 import deepsudoku.reinforcement_learning
-from single_action_agents import SeperateOnlyConv, MLP, TransformerAgent, SharedOnlyConv, ConvwithFCHead
+from single_action_agents import SeperateOnlyConv, MLP, TransformerAgent, SharedOnlyConv, ConvwithFCHead, SpecialSoftmax
 import gymnasium as gym
 import torch
 from reinforcement_learning_experiment.multi_action_agents import SplitMLP, MultiActionSeperateOnlyConv
@@ -9,7 +9,8 @@ Single_Action_Agents = {
     "SharedOnlyConv" :SharedOnlyConv,
     "MLP" : MLP,
     "TransformerAgent": TransformerAgent,
-    "ConvwithFCHead": ConvwithFCHead
+    "ConvwithFCHead": ConvwithFCHead,
+    "SpecialSoftmax": SpecialSoftmax,
 }
     
 Multi_Action_AGENTS = { 

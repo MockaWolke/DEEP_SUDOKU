@@ -11,7 +11,6 @@ warnings.filterwarnings(
 
 from deepsudoku.reinforcement_learning.env import (
     create_sudoku_env_v0,
-    create_sudoku_env_v1,
     create_sudoku_env_x1,
     create_sudoku_env_x1n,
     create_sudoku_env_x2,
@@ -30,12 +29,6 @@ gymnasium.register(
     max_episode_steps=81,
 )
 
-gymnasium.register(
-    id="Sudoku-x0",
-    entry_point=create_sudoku_env_v1,
-    kwargs={"size": 3, "render_mode": "none"},
-    max_episode_steps=81,
-)
 
 gymnasium.register(
     id="Sudoku-x1",

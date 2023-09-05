@@ -3,6 +3,7 @@ import numpy as np
 from torch import nn
 from torch.distributions import Categorical
 import numpy as np
+from deepsudoku import PACKAGE_PATH
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, std)
@@ -193,4 +194,12 @@ class BestConvModel(AgentBarebone):
         
         return values, logits
         
+def get_sudoku_agent(device : str = "cuda") -> torch.nn.Module: 
+            
+    agent = BestConvModel(True, device)
+    agent.load_state_dict(torch.load(PACKAGE_PATH /"reinforcement_learning/best_agent.pth")["model_state_dict"])
+    
+    if device == "cuda":
+        agent = agent.cuda()
         
+    return agent

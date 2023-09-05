@@ -5,7 +5,7 @@ python single_action_ppo_script.py \
     --gym-id Sudoku-nostop0 \
     --exp-name Nonestop_ENV_Shared_right_rewards \
     --mask-actions True \
-    --agent SharedOnlyConv \
+    --agent SpecialSoftmax \
     --eval-freq 50 \
     --eval-steps 100 \
     --anneal-lr True \

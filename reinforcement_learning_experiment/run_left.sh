@@ -1,4 +1,2 @@
-bash experiments_settings/different_envs/High_Win_Reward_ENV_longer.sh
-
-cd /home/felix/Desktop/DEEP_SUDOKU/reinforcement_learning_experiment
-
+bash experiments_settings/measure_times/measure_time_nostop.sh
+bash experiments_settings/measure_times/measure_time_x2.sh

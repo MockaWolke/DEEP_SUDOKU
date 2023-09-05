@@ -12,20 +12,17 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 
-
 class CategoricalMasked(Categorical):
     def __init__(self, probs=None, logits=None, validate_args=None, masks=[]):
         self.masks = masks
-        
+
         assert torch.is_tensor(logits), "Logits Must be provided ans as tensor"
-        
+
         if len(self.masks) == 0:
             super(CategoricalMasked, self).__init__(probs, logits, validate_args)
         else:
-            
             self.device = logits.device
-      
-            
+
             self.masks = masks.type(torch.BoolTensor).to(self.device)
             logits = torch.where(self.masks, logits, torch.tensor(-1e8).to(self.device))
             super(CategoricalMasked, self).__init__(probs, logits, validate_args)
@@ -45,82 +42,108 @@ class AgentBarebone(nn.Module):
         self.mask_actions = mask_actions
 
     def get_value(self, obs):
-        
         raise NotImplemented()
-        
+
         # return self.critic(self.network(x))
-    
+
     def get_value_and_logits(self, obs):
-        
         raise NotImplemented()
-    
+
     def get_action_mask(self, observations):
-        
         observations = observations.reshape(-1, 81)
-        
-        mask = (observations == 0).repeat_interleave(9, dim = 1)
-        
-        
+
+        mask = (observations == 0).repeat_interleave(9, dim=1)
+
         return mask
-            
 
     def get_action_and_value(self, obs, action=None):
-
         value, logits = self.get_value_and_logits(obs)
 
         if self.mask_actions:
-
             action_mask = self.get_action_mask(obs)
 
-            probs = CategoricalMasked(logits=logits, masks=action_mask) 
-            
-            
+            probs = CategoricalMasked(logits=logits, masks=action_mask)
+
         else:
-            
             probs = Categorical(logits=logits)
-            
+
         if action is None:
             action = probs.sample()
-            
+
         return action, probs.log_prob(action), probs.entropy(), value
-    
-    
+
     def get_greedy_action(self, obs):
-        
         value, logits = self.get_value_and_logits(obs)
 
-
         action_mask = self.get_action_mask(obs).to(logits.device)
-        
+
         logits = torch.where(action_mask, logits, torch.tensor(-1e8).to(logits.device))
-        
-        return torch.argmax(logits, axis = -1)
+
+        return torch.argmax(logits, axis=-1)
 
     def get_action_probs(self, obs):
-
         value, logits = self.get_value_and_logits(obs)
 
-
         action_mask = self.get_action_mask(obs).to(logits.device)
-        
+
         logits = torch.where(action_mask, logits, torch.tensor(-1e8).to(logits.device))
-        
+
         return logits
 
+
+class SudokuSoftplusLayer(nn.Module):
+    def __init__(self):
+        super(SudokuSoftplusLayer, self).__init__()
+
+    def forward(self, x):
         
+        x = x.permute(0, 3, 2, 1)
+        
+        exp = torch.exp(x)
+
+        sum_counter = torch.zeros_like(x)
+
+        cols = torch.sum(exp, dim=2, keepdim=True)
+        rows = torch.sum(exp, dim=1, keepdim=True)
+        
+        sum_counter += cols
+        sum_counter += rows
+
+        blocks_grouped = torch.reshape(
+            torch.reshape(exp, (-1, 3, 3, 3, 3, 9)).permute(0, 1, 3, 2, 4, 5),
+            (-1, 9, 9, 9),
+        )
+        blocks_sum = torch.sum(blocks_grouped, dim=2, keepdim=True)
+
+        sum_counter_reshaped = torch.reshape(
+            torch.reshape(sum_counter, (-1, 3, 3, 3, 3, 9)).permute(0, 1, 3, 2, 4, 5),
+            (-1, 9, 9, 9),
+        )
+        sum_counter_reshaped += blocks_sum
+        sum_counter = torch.reshape(
+            torch.reshape(sum_counter_reshaped, (-1, 3, 3, 3, 3, 9)).permute(
+                0, 1, 3, 2, 4, 5
+            ),
+            (-1, 9, 9, 9),
+        )
+
+        x = x - torch.log(sum_counter)
+        
+        return x.permute(0, 3, 2, 1)
+
+
 class SeperateOnlyConv(AgentBarebone):
-    
     def __init__(self, mask_actions):
-        
         super(SeperateOnlyConv, self).__init__(mask_actions)
-    
+
         self.actor = nn.Sequential(
-            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding=1)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding=4)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding = 4), std=0.01),)
-        
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding=4), std=0.01),
+        )
+
         self.critic = nn.Sequential(
             nn.Flatten(),
             layer_init(nn.Linear(810, 128)),
@@ -130,33 +153,71 @@ class SeperateOnlyConv(AgentBarebone):
             layer_init(nn.Linear(256, 1), std=1.0),
         )
 
-
     def get_value(self, obs):
-
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float()
 
         return self.critic(obs)
-        
-    def get_value_and_logits(self, obs : torch.Tensor):
-        
+
+    def get_value_and_logits(self, obs: torch.Tensor):
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float()
 
         values = self.critic(obs)
-        
-        logits = self.actor(obs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1).reshape(-1, 9**3)
-        
-        
+
+        logits = (
+            self.actor(obs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        )
+
         return values, logits
-        
-        
-class MLP(AgentBarebone):
-    
+
+
+class SpecialSoftmax(AgentBarebone):
     def __init__(self, mask_actions):
-        
+        super(SpecialSoftmax, self).__init__(mask_actions)
+
+        self.actor = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding=1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding=4)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding=4), std=0.01),
+            SudokuSoftplusLayer(),
+        )
+
+        self.critic = nn.Sequential(
+            nn.Flatten(),
+            layer_init(nn.Linear(810, 128)),
+            nn.Tanh(),
+            layer_init(nn.Linear(128, 256)),
+            nn.Tanh(),
+            layer_init(nn.Linear(256, 1), std=1.0),
+        )
+
+    def get_value(self, obs):
+        obs = F.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        return self.critic(obs)
+
+    def get_value_and_logits(self, obs: torch.Tensor):
+        obs = F.one_hot(obs.to(torch.int64), 10)
+        obs = obs.float()
+
+        values = self.critic(obs)
+
+        logits = (
+            self.actor(obs.permute(0, 3, 2, 1)).permute(0, 3, 2, 1).reshape(-1, 9**3)
+        )
+
+        return values, logits
+
+
+
+class MLP(AgentBarebone):
+    def __init__(self, mask_actions):
         super(MLP, self).__init__(mask_actions)
-        
+
         self.critic = nn.Sequential(
             layer_init(nn.Linear(810, 128)),
             nn.Tanh(),
@@ -171,129 +232,119 @@ class MLP(AgentBarebone):
             nn.Tanh(),
             layer_init(nn.Linear(256, 9**3), std=0.01),
         )
-        
-    def get_value(self, obs):
 
-        obs = obs.to(torch.int64).reshape(-1,81)
-        obs = F.one_hot(obs,10).float()
+    def get_value(self, obs):
+        obs = obs.to(torch.int64).reshape(-1, 81)
+        obs = F.one_hot(obs, 10).float()
 
         return self.critic(obs.reshape(-1, 810))
-        
-    def get_value_and_logits(self, obs):
 
-        obs = obs.to(torch.int64).reshape(-1,81)
+    def get_value_and_logits(self, obs):
+        obs = obs.to(torch.int64).reshape(-1, 81)
         obs = F.one_hot(obs, 10).reshape(-1, 810).float()
 
         values = self.critic(obs.reshape(-1, 810))
-        
+
         logits = self.actor(obs)
-        
+
         return values, logits
 
+
 class ConvwithFCHead(AgentBarebone):
-    
     def __init__(self, mask_actions):
-        
         super(ConvwithFCHead, self).__init__(mask_actions)
-    
+
         self.network = nn.Sequential(
-            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding=1)),
             nn.ReLU(),
-            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding=4)),
             nn.ReLU(),
             nn.Flatten(),
             layer_init(nn.Linear(32 * 9 * 9, 128)),
             nn.ReLU(),
         )
-        self.actor = layer_init(nn.Linear(128, 9 ** 3), std=0.01)
+        self.actor = layer_init(nn.Linear(128, 9**3), std=0.01)
         self.critic = layer_init(nn.Linear(128, 1), std=1)
 
-
     def get_value(self, obs):
-
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float().permute(0, 3, 2, 1)
 
         return self.critic(self.network(obs))
-        
+
     def get_value_and_logits(self, obs):
-        
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float().permute(0, 3, 2, 1)
 
         hidden = self.network(obs)
 
         values = self.critic(hidden)
-        
-        logits = self.actor(hidden)
-        
-        return values, logits
-    
-    
-        
-class SharedOnlyConv(AgentBarebone):
-    
-    def __init__(self, mask_actions):
-        
-        super(SharedOnlyConv, self).__init__(mask_actions)
-    
-        self.network = nn.Sequential(
-            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding = 4)),
-            nn.ReLU(),
 
+        logits = self.actor(hidden)
+
+        return values, logits
+
+
+class SharedOnlyConv(AgentBarebone):
+    def __init__(self, mask_actions):
+        super(SharedOnlyConv, self).__init__(mask_actions)
+
+        self.network = nn.Sequential(
+            layer_init(nn.Conv2d(10, 16, kernel_size=3, padding=1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, kernel_size=9, padding=4)),
+            nn.ReLU(),
         )
         self.actor = nn.Sequential(
-            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding = 4), std=0.01),)
-        
+            layer_init(nn.Conv2d(32, 9, kernel_size=9, padding=4), std=0.01),
+        )
+
         self.critic = nn.Sequential(
             nn.Flatten(),
             layer_init(nn.Linear(32 * 9 * 9, 128)),
             nn.ReLU(),
-            layer_init(nn.Linear(128, 1), std=1))
-
+            layer_init(nn.Linear(128, 1), std=1),
+        )
 
     def get_value(self, obs):
-
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float().permute(0, 3, 2, 1)
 
         return self.critic(self.network(obs))
-        
+
     def get_value_and_logits(self, obs):
-        
         obs = F.one_hot(obs.to(torch.int64), 10)
         obs = obs.float().permute(0, 3, 2, 1)
 
         hidden = self.network(obs)
 
         values = self.critic(hidden)
-        
+
         logits = self.actor(hidden).permute(0, 3, 2, 1).reshape(-1, 9**3)
-        
-        
+
         return values, logits
-    
-    
-    
+
+
 class SudokuTransformer(nn.Module):
     def __init__(self, embed_dim=64, num_heads=4):
         super(SudokuTransformer, self).__init__()
-        
+
         # Create the positional embeddings
         xs = torch.arange(9).repeat(9)
         ys = torch.arange(9).repeat_interleave(9)
 
         blocks = torch.arange(3).repeat_interleave(3).repeat(3)
         blocks = torch.cat((blocks, blocks + 3, blocks + 6))
-        
-        self.positional_embedding = torch.cat((
-            F.one_hot(xs, 9),
-            F.one_hot(ys, 9),
-            F.one_hot(blocks, 9),
-        ), axis=1)
-        
+
+        self.positional_embedding = torch.cat(
+            (
+                F.one_hot(xs, 9),
+                F.one_hot(ys, 9),
+                F.one_hot(blocks, 9),
+            ),
+            axis=1,
+        )
+
         # Transformation Layers
         self.to_embed_dim = nn.Linear(37, embed_dim)
         self.layer = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
@@ -304,8 +355,9 @@ class SudokuTransformer(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, obs):
-
-        to_batch_size = self.positional_embedding[None, :].repeat(obs.size(0),1,1).to(obs.device)
+        to_batch_size = (
+            self.positional_embedding[None, :].repeat(obs.size(0), 1, 1).to(obs.device)
+        )
         obs = torch.cat((obs, to_batch_size), -1).float()
 
         # Transformer Layers
@@ -315,16 +367,14 @@ class SudokuTransformer(nn.Module):
         x = self.relu(self.smaller(self.relu(self.bigger(x))))
         x, _ = self.layer1(x, x, x)
         x = self.output(x)
-        
+
         return x
-    
+
 
 class TransformerAgent(AgentBarebone):
-    
-    def __init__(self,  mask_actions):
-        
+    def __init__(self, mask_actions):
         super(TransformerAgent, self).__init__(mask_actions)
-            
+
         self.critic = nn.Sequential(
             layer_init(nn.Linear(810, 128)),
             nn.Tanh(),
@@ -332,26 +382,21 @@ class TransformerAgent(AgentBarebone):
             nn.Tanh(),
             layer_init(nn.Linear(256, 1), std=1.0),
         )
-    
-        self.actor = SudokuTransformer(128, 8)
-    
-    def get_value(self, obs):
 
+        self.actor = SudokuTransformer(128, 8)
+
+    def get_value(self, obs):
         obs = obs.reshape(-1, 81)
         obs = F.one_hot(obs.to(torch.int64), 10)
-        
+
         return self.critic(obs.float().reshape(-1, 810))
-        
+
     def get_value_and_logits(self, obs):
-        
         obs = obs.reshape(-1, 81)
         obs = F.one_hot(obs.to(torch.int64), 10)
-        
 
         values = self.critic(obs.float().reshape(-1, 810))
-        
-        logits = self.actor(obs).reshape(-1, 9 ** 3)
-        
-        
+
+        logits = self.actor(obs).reshape(-1, 9**3)
+
         return values, logits
-    

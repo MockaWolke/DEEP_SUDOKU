@@ -2,14 +2,9 @@
 
 ## TODO
 
-- Sudokus speichern
-- anderee Env ohne resets
-- self attention
-- integrated gradients 
-- linear probes
-- ensemble via legal transformations
-- paper schreiben
-
+3. RL Zeit messen?
+4. Video machen
+5. Alles in notebooks zusammenfassen
 
 
 ## Install
