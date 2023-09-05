@@ -1,10 +1,10 @@
 # DEEP SUDOKU
 
+![sth](analysis/animation.gif)
 ## TODO
 
-3. RL Zeit messen?
-4. Video machen
-5. Alles in notebooks zusammenfassen
+1. RL Zeit messen?
+2. Alles in notebooks zusammenfassen
 
 
 ## Install
