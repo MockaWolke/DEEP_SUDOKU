@@ -1,2 +1,0 @@
-bash experiments_settings/measure_times/measure_time_nostop.sh
-bash experiments_settings/measure_times/measure_time_x2.sh

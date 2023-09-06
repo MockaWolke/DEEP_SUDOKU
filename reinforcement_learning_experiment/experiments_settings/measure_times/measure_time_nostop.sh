@@ -8,7 +8,7 @@ python single_action_ppo_script.py \
     --agent SeperateOnlyConv \
     --eval-freq 50 \
     --eval-steps 100 \
-    --anneal-lr False \
+    --anneal-lr False \ 
+    --cut-off-limit 10 \
     --win-reward 3 \
-    --fail-penalty 1 \
-    --cut-off-limit 20
+    --fail-penalty 0.1
