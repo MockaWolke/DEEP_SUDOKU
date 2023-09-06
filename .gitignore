@@ -13,7 +13,7 @@ logs.csv
 saved_sudoku_junks/
 **/cpkt/
 **/final_model.pth
-
+analysis/old
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -32,6 +32,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+stats/preds
 parts/
 sdist/
 var/

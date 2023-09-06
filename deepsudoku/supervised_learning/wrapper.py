@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+from deepsudoku.supervised_learning.winrate import SudokuWinRate
 
 
 
@@ -85,3 +85,19 @@ class SudukoWrapper(tf.keras.Model):
                 metric.update_state(y, y_pred_argmaxed)
 
         return {m.name: m.result() for m in self.metric_list}
+
+    @tf.function
+    def predict_step(self, data):
+
+        if isinstance(data, tuple):
+
+            x, _y = data
+        else: 
+            x = data
+
+        y_pred = self.call(x, training=False)
+
+
+        y_pred_argmaxed = tf.argmax(y_pred, -1) + 1
+
+        return y_pred_argmaxed

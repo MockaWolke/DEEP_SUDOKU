@@ -34,8 +34,11 @@ class SudokuDoubleSoftmaxLayer(tf.keras.layers.Layer):
         return self.sudoku_double_softmax(x)
 
     def sudoku_double_softmax(self, x):
-        exp = tf.exp(x)
 
+        maximum = tf.reduce_max(x, axis = [1,2], keepdims= True)
+        
+        exp = tf.exp(x - maximum)
+        
         sum_counter = tf.zeros_like(x)
 
         cols = tf.reduce_sum(exp, axis=2)
@@ -65,7 +68,10 @@ class SudokuDoubleSoftmaxLayer(tf.keras.layers.Layer):
             (-1, 9, 9, 9),
         )
 
-        x = x - tf.math.log(sum_counter)
+            
+        log_sum_counter = tf.math.log( sum_counter + 1e-8)
+
+        x = x - maximum - log_sum_counter
 
         x = tf.nn.softmax(x, -1)
 
@@ -112,6 +118,18 @@ class SudukoWrapper(tf.keras.Model):
 
             loss = self.compute_loss(y=y_minus_1_for_cross_entropy, y_pred=y_pred)
 
+        if tf.math.is_nan(loss):
+
+            tf.print("\n\n------------------------------- Loss NAN -------------------------------\n\n")
+            tf.print("x :", x)
+            tf.print("y :", y)
+            tf.print("y_pred :", tf.math.reduce_any(tf.math.is_nan(y_pred)))
+            tf.print("\n\n-------------------------------  -------------------------------")
+            
+
+
+    
+        
         gradients = tape.gradient(loss, self.back_bone.trainable_variables)
 
         self.optimizer.apply_gradients(
@@ -140,16 +158,26 @@ class SudukoWrapper(tf.keras.Model):
 
         loss = self.compute_loss(y=y_minus_1_for_cross_entropy, y_pred=y_pred)
 
-        y_pred_argmaxed = tf.argmax(y_pred, -1) + 1
+        if tf.math.is_nan(loss):
 
-        self.metric_list[0].update_state(loss)
+            tf.print("\n\n------------------------------- Loss NAN -------------------------------")
+            tf.print(x)
+            tf.print(y)
+            tf.print(y_pred)
+            tf.print("\n\n-------------------------------  -------------------------------")
 
-        for metric in self.metric_list[1:]:
-            if "masked" in metric.name:
-                metric.update_state(y, y_pred_argmaxed, x)
+        else:
 
-            else:
-                metric.update_state(y, y_pred_argmaxed)
+            y_pred_argmaxed = tf.argmax(y_pred, -1) + 1
+
+            self.metric_list[0].update_state(loss)
+
+            for metric in self.metric_list[1:]:
+                if "masked" in metric.name:
+                    metric.update_state(y, y_pred_argmaxed, x)
+
+                else:
+                    metric.update_state(y, y_pred_argmaxed)
 
         return {m.name: m.result() for m in self.metric_list}
 

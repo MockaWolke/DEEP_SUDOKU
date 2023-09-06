@@ -39,7 +39,7 @@ class SudokuDoubleSoftmaxLayer(tf.keras.layers.Layer):
             (-1, 9, 9, 9),
         )
 
-        x = x - tf.math.log(sum_counter)
+        x = x - tf.math.log(sum_counter + 1e-7)
 
         x = tf.nn.softmax(x, -1)
 

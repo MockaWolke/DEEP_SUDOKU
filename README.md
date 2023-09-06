@@ -1,6 +1,6 @@
 # DEEP SUDOKU
 
-![sth](analysis/animation.gif)
+![sth](imgs/animation.gif)
 ## TODO
 
 1. RL Zeit messen?
