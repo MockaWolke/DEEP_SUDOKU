@@ -1,4 +1,6 @@
 # setup.sh
+cd ..
+
 git clone https://github.com/t-dillon/tdoku.git
 
 cd tdoku/
