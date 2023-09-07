@@ -31,13 +31,16 @@ Contained in `deepsudoku/supervised_learning`, this section showcases:
 - Innovative Layer: Introducing the "SudokuDoubleSoftMax" layer, a novel approach tailored for Sudoku challenges.
 
 ## Research Experiments
+
+![best nidek training](imgs/rl_best_model_training.jpg)
+
 For our deep reinforcement learning project, we embarked on multiple experiments:
 
-1. Supervised Learning Research: We extensively studied different architectures to gauge their effectiveness in Sudoku solutions. Explore the entire process, from code to logged outcomes, in the `supervised_experiments` directory.
+1. Supervised Learning Research: We extensively studied different architectures to gauge their effectiveness in Sudoku solutions. Explore the entire process, from code to logged outcomes, in the `supervised_experiments` directory. Our data can be downloaded [here](https://drive.google.com/file/d/1oP-Y0_8yQoQ1wQZJIiQyY1Fnj0dCRH-D/view?usp=drive_link):
 
 2. Reinforcement Learning Exploration: Delve into our research on the optimal architecture and environment dynamics for reinforcement learning, housed in the `reinforcement_learning_experiment` folder.
 
-3. Benchmarking the Best: Based on our research insights, we trained a agent capable of solving Sudokus with 27 missing digits with an ~60% success rate using maseked PPO. The entire journey can be retraced in `train_best_agent`.
+3. Benchmarking the Best: Based on our research insights, we trained a agent capable of solving Sudokus with 27 missing digits with an ~57% success rate using maseked PPO. The entire journey can be retraced in `train_best_agent`.
 
 For complete transparency and reproducibility:
 
