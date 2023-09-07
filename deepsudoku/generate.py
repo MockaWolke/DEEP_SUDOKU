@@ -1,3 +1,4 @@
+"""Code to generate Sudokus"""
 from deepsudoku import REPO_PATH, TDOKU_AVAILABLE, PATH_TO_TDOKU_BIN
 from deepsudoku.utils import Board
 import random
@@ -11,8 +12,9 @@ import os
 import glob
 import pickle
 
+
 def recu_generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], cols: Dict[int, Set[int]], blocks: Dict[Tuple[int, int], Set[int]], idx: List[Tuple[int, int]]) -> bool:
-    
+    """Recursion to generate a full field"""    
     if not idx:
         return True
     
@@ -44,7 +46,7 @@ def recu_generate(field: Dict[Tuple[int, int], int], rows: Dict[int, Set[int]], 
     return False
 
 def construct_puzzle_solution() -> List[int]:
-    
+    """Quickly find full field.  """
     field = {}
     numbers = set(range(1, 10))
     
@@ -62,7 +64,7 @@ def construct_puzzle_solution() -> List[int]:
 
 
 class Solver():
-    
+    """Solver wrapper to use either norvig or tdoku"""
     def __init__(self, use_tdoku = False) -> None:
     
         

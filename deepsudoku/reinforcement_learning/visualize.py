@@ -1,3 +1,4 @@
+"""Code to visualize integradetd gradients"""
 from captum.attr import IntegratedGradients
 import matplotlib.colors as colors
 from matplotlib.animation import FuncAnimation

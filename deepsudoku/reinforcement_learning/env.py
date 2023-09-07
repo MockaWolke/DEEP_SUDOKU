@@ -1,3 +1,5 @@
+"""The code for our different environments"""
+
 import numpy as np
 from deepsudoku.generate import Generator, Solver
 from deepsudoku.utils import string_to_array, visualize_sudoku
@@ -409,39 +411,10 @@ class SudokuEnv_nostop0(gymnasium.Env):
         pass
 
 
-class SudokuEnv_x1n(SudokuEnv_x1):
-    def __init__(
-        self,
-        difficulty,
-        factor_in_density=False,
-        upper_bound_missing_digist=None,
-        render_mode="human",
-    ):
-        super().__init__(
-            difficulty, factor_in_density, upper_bound_missing_digist, render_mode
-        )
 
-    def step(self, action):
-        field, reward, terminated, trunated, info = super().step(action)
-
-        reward = ((reward + 1) / 55.5) - 1
-
-        return field, reward, terminated, trunated, info
+# --------------------------- The registration function---------------------------
 
 
-
-def create_sudoku_env_x1n(
-    difficulty,
-    factor_in_density=False,
-    upper_bound_missing_digist=None,
-    render_mode="human",
-):
-    return SudokuEnv_x1n(
-        difficulty,
-        factor_in_density,
-        upper_bound_missing_digist=upper_bound_missing_digist,
-        render_mode=render_mode,
-    )
 
 
 def create_sudoku_env_v0(

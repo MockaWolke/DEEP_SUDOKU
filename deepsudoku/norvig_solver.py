@@ -1,3 +1,4 @@
+"""Code from https://github.com/brotskydotcom/sudoku-generator/tree/develop"""
 # MIT License
 #
 # Copyright (c) 2019 Daniel Brotsky

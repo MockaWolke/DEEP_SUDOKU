@@ -1,3 +1,4 @@
+"""Simple code to evaluate the agent"""
 import torch
 import deepsudoku.reinforcement_learning
 from deepsudoku.reinforcement_learning.ensemble import *

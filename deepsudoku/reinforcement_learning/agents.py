@@ -1,3 +1,4 @@
+"""Hold the code for the agents"""
 import torch
 import numpy as np
 from torch import nn
@@ -5,7 +6,9 @@ from torch.distributions import Categorical
 import numpy as np
 from deepsudoku import PACKAGE_PATH
 
+
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    """PPO layer init"""
     torch.nn.init.orthogonal_(layer.weight, std)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
@@ -13,6 +16,7 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 
 
 class CategoricalMasked(Categorical):
+
     def __init__(self, probs=None, logits=None, validate_args=None, masks=[]):
         self.masks = masks
         
@@ -38,6 +42,8 @@ class CategoricalMasked(Categorical):
 
 
 class AgentBarebone(nn.Module):
+    """Wrapper around networks for simplicity."""
+    
     def __init__(self, mask_actions, device):
         super(AgentBarebone, self).__init__()
 
@@ -55,6 +61,7 @@ class AgentBarebone(nn.Module):
         raise NotImplemented()
     
     def get_action_mask(self, observations):
+        """Get the action mask given sudoku field"""
         
         observations = observations.reshape(-1, 81)
         
@@ -86,6 +93,7 @@ class AgentBarebone(nn.Module):
     
     
     def get_greedy_action(self, obs):
+        """Get action with highest probability"""
         
         value, logits = self.get_value_and_logits(obs)
 
@@ -97,7 +105,8 @@ class AgentBarebone(nn.Module):
         return torch.argmax(logits, axis = -1)
 
     def get_action_probs(self, obs):
-
+        """Get probability of  actions"""
+        
         value, logits = self.get_value_and_logits(obs)
 
 
@@ -109,11 +118,11 @@ class AgentBarebone(nn.Module):
 
         
 class BestConvModel(AgentBarebone):
-    
+    """Our best (OnlyConv) Agent"""
     def __init__(self, mask_actions, device = "cuda"):
         
         super(BestConvModel, self).__init__(mask_actions, device)
-    
+        # the actor and critic networks
         self.actor = nn.Sequential(
             layer_init(nn.Conv2d(10, 16, kernel_size=3, padding = 1)),
             nn.ReLU(),
@@ -130,8 +139,10 @@ class BestConvModel(AgentBarebone):
             layer_init(nn.Linear(256, 1), std=1.0),
         )
 
+
     def forward(self, obs, get_action = None):
-        
+        """Bif forward function that returns actions in different formats given and obs"""
+                
         assert get_action in [None, "raveled", "unraveled"]
         
         if not torch.is_tensor(obs):
@@ -155,13 +166,13 @@ class BestConvModel(AgentBarebone):
         logits = torch.where(action_mask, logits, torch.tensor(-1e8).to(logits.device))
 
         if get_action is None:
-            
+            # get the probilies
             return logits.cpu()
         
         elif get_action == "raveled":
             
             
-            
+            # get the raveled actions
             raveled = torch.argmax(logits, -1).cpu().numpy().squeeze()
             
             return raveled
@@ -171,7 +182,7 @@ class BestConvModel(AgentBarebone):
             
             raveled = torch.argmax(logits, -1).cpu().numpy().squeeze()
             
-            
+            # get unraveled
             return np.unravel_index(raveled, (9,9,9))
             
 
@@ -195,7 +206,8 @@ class BestConvModel(AgentBarebone):
         return values, logits
         
 def get_sudoku_agent(device : str = "cuda") -> torch.nn.Module: 
-            
+    """Load our best agent"""        
+     
     agent = BestConvModel(True, device)
     agent.load_state_dict(torch.load(PACKAGE_PATH /"reinforcement_learning/best_agent.pth")["model_state_dict"])
     

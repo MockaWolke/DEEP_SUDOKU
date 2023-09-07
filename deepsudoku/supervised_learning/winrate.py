@@ -1,13 +1,16 @@
 import tensorflow as tf
 
 class SudokuWinRate(tf.keras.metrics.Metric):
+    """Tensorflow Metric Measuring the Winrate"""
     def __init__(self, name="sudoku_win_rate", **kwargs):
         super(SudokuWinRate, self).__init__(name=name, **kwargs)
         self.total_wins = self.add_weight(name="total_wins", initializer="zeros")
         self.total_puzzles = self.add_weight(name="total_puzzles", initializer="zeros")
 
     def update_state(self, y_true, y_pred_argmaxed, sample_weight=None):
+        
         y_pred_argmaxed = tf.cast(y_pred_argmaxed, y_true.dtype)
+        # if if all is equal
         wins = tf.reduce_all(tf.equal(y_true, y_pred_argmaxed), axis=[1, 2])
 
         self.total_wins.assign_add(tf.reduce_sum(tf.cast(wins, tf.float32)))

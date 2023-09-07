@@ -1,9 +1,13 @@
+"""Code for efficient ensembles"""
+
 import numpy as np
 from multiprocessing import Pool
 import torch
 
+
+
 def row_permutation(matrix):
-    
+    """swap valid rows"""
     
     from_, to_ = np.random.choice(3, 2, replace = False)
     block = np.random.randint(0,3)
@@ -14,6 +18,7 @@ def row_permutation(matrix):
     return matrix
 
 def col_permutation(matrix):
+    """swap valid columns"""
 
     
     from_, to_ = np.random.choice(3, 2, replace = False)
@@ -25,6 +30,7 @@ def col_permutation(matrix):
     return matrix
 
 def transpose_permutation(matrix):
+    """transpose"""
     
     return np.transpose(matrix.copy(), (1, 0, 2))
 
@@ -41,11 +47,13 @@ def rotate_permutation(matrix):
 
 
 PERMUTATIONS = [row_permutation, col_permutation, transpose_permutation, flip_permutation, rotate_permutation]
+# Probs for each permutation
 WEIGHTS = [0.35, 0.35, 0.1, 0.1, 0.1]
 
 
 def n_permutations(ar : np.ndarray, n : int) -> np.ndarray:
-
+    """Apply n ranndom permutatins to arr"""
+    
     ar = ar.copy()
 
     todo = np.random.choice(PERMUTATIONS, n, p = WEIGHTS)
@@ -56,9 +64,11 @@ def n_permutations(ar : np.ndarray, n : int) -> np.ndarray:
     return ar
 
 def parralel_permutations(ar : np.ndarray, n_different : int,  n_permuts_each : int, n_cpus : int) -> np.ndarray:
+    """Compute permutations in parralel"""
+    
     
     positions = np.arange(81).reshape(9, 9)
-    
+    # add postion information
     ar = np.stack((ar, positions), -1)
     
     if n_cpus > 1:
@@ -80,18 +90,27 @@ def parralel_permutations(ar : np.ndarray, n_different : int,  n_permuts_each : 
     return stacked
         
 def ensemble(obs: np.ndarray, agent, n_different : int,  n_permuts_each : int, n_cpus : int, mode = "average"):
-    
+    """The big ensemble function.
+
+    Args:
+        obs (np.ndarray): obs array
+        agent (_type_): the agent
+        n_different (int): how many different permutaions
+        n_permuts_each (int): how many permutaitions steps applied to obs for each
+        n_cpus (int): for parralezation. if ==1 then no is applied
+        mode (str, optional): Wether to do majority voting or average the probs and then argmax.
+    """
     
     assert mode in ["average","majority"]
 
     per = parralel_permutations(obs, n_different,  n_permuts_each, n_cpus )
 
-
+    # split pribs and posistions
     states, positions = per[:,:,:,0], per[:,:,:,1]
 
     positions = positions.reshape(-1, 81)
     
-    
+    # get batched preduictions
     states_to_torch = torch.tensor(states).to("cuda")
 
     with torch.no_grad():
@@ -100,25 +119,27 @@ def ensemble(obs: np.ndarray, agent, n_different : int,  n_permuts_each : int, n
 
     probs = probs.cpu().reshape(-1, 81, 9)
 
-
+    # sort postions back to original
     indices = torch.tensor(np.argsort(positions, axis = -1))
 
-
-
+    # gather probs in to orginal order
     result_torch = torch.gather(probs, 1, indices.unsqueeze(2).expand(-1, -1, 9))
+
     
     
     
     if mode == "average":
         
+        # just average and argmax
         flattened = result_torch.mean(0).flatten()
         arg_max = torch.argmax(flattened).numpy()
         return np.unravel_index(arg_max,(9,9,9))
     
     elif mode == "majority":
-        
+        # argmax first
         votes = torch.argmax(result_torch.reshape(-1, 9 **3), -1).numpy()
         
+        # then get most frequent
         unique, counts = np.unique(votes, return_counts = True)
         
         vote = unique[np.argmax(counts)]
@@ -127,7 +148,7 @@ def ensemble(obs: np.ndarray, agent, n_different : int,  n_permuts_each : int, n
         
         
 class EnsembleModel(torch.nn.Module):
-    
+    """Just a wrapper for simplicity"""
     def __init__(self, agent, n_different : int,  n_permuts_each : int, n_cpus : int = 1, mode = "average") -> None:
         
         super(EnsembleModel, self).__init__()

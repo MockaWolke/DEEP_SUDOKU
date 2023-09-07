@@ -4,7 +4,8 @@ from deepsudoku import PATH_TO_TDOKU_BIN
 
 
 class TdokuSolver:
-    """Very Fast TDOKU SOlVER Using https://github.com/t-dillon/tdoku"""
+    """Very Fast TDOKU SOlVER Using https://github.com/t-dillon/tdoku.
+    Code mostly taken from it"""
 
     def __init__(self):
 

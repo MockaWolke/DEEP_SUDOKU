@@ -6,6 +6,11 @@ from deepsudoku.supervised_learning.winrate import SudokuWinRate
 
 
 class SudukoWrapper(tf.keras.Model):
+    
+    """Wrapper around a backbone network for easier training and evaluation of different architectures.
+    Expects backone to receive values of (9,9,10) and output (9,9,9)"""
+    
+    
     def __init__(self, back_bone):
         super().__init__()
 
@@ -18,6 +23,7 @@ class SudukoWrapper(tf.keras.Model):
         ]
 
     def test_back_bone(self):
+        """Just a function to test the backbone"""
         x = tf.random.uniform(
             (10, 9, 9, 10),
             0,
@@ -37,7 +43,11 @@ class SudukoWrapper(tf.keras.Model):
 
     @tf.function
     def train_step(self, data):
+        
+        
         x, y = data
+        
+        # sudoku solution to class (before lowest value was 1) 
         y_minus_1_for_cross_entropy = y - 1
 
         with tf.GradientTape() as tape:
@@ -45,14 +55,20 @@ class SudukoWrapper(tf.keras.Model):
 
             loss = self.compute_loss(y=y_minus_1_for_cross_entropy, y_pred=y_pred)
 
+        
+        # apply gradient
         gradients = tape.gradient(loss, self.back_bone.trainable_variables)
 
         self.optimizer.apply_gradients(
             zip(gradients, self.back_bone.trainable_variables)
         )
 
+
+        # prediction to sudoku format
         y_pred_argmaxed = tf.argmax(y_pred, -1) + 1
 
+
+        # update metrics
         self.metric_list[0].update_state(loss)
 
         for metric in self.metric_list[1:]:

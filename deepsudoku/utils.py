@@ -1,3 +1,4 @@
+"""A set of util funnction"""
 from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
@@ -61,6 +62,9 @@ def visualize_sudoku(sudoko, return_fig=False, figsize=(6, 6), dpi=100):
         return fig
 
     plt.show()
+    
+    
+# ----------------------------------- From here on, the code is from https://github.com/brotskydotcom/sudoku-generator/tree/develop -----------------------------------------
 
 
 class Cell:
