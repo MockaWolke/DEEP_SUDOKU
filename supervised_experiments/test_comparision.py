@@ -1,9 +1,6 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, ReLU, Flatten, Dense, Reshape, Softmax
-from keras.utils.layer_utils import count_params  
-from tensorflow.keras import layers
 import numpy as np
-from metrics_and_wrapper import SudokuWinRate, MaskedAccuracy, MaskedSudokuWinRate, SudukoWrapper, ValidationMetricsDifficulty
+from metrics_and_wrapper import SudukoWrapper, ValidationMetricsDifficulty
 from architectures import *
 from load_data import get_data, get_tf_dataset, get_data_by_difficulty_and_origin
 

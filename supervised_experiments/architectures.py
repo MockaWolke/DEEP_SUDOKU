@@ -183,7 +183,7 @@ class SmallSudokuTransformer(tf.keras.Model):
         
 
     @tf.function
-    def call(self, inputs, training = False):
+    def call(self, inputs, training = None):
         # Input Preprocessing
         obs = tf.reshape(inputs, (-1, 81, 10))
         batch_size = tf.shape(inputs)[0]

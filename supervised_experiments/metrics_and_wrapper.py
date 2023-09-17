@@ -1,9 +1,8 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, ReLU, Flatten, Dense, Reshape, Softmax
-from keras.utils.layer_utils import count_params
-from tensorflow.keras import layers
 from load_data import get_tf_dataset
 import logging
+
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
