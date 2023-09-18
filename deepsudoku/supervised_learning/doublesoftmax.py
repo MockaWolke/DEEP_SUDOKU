@@ -12,6 +12,7 @@ class SudokuDoubleSoftmaxLayer(tf.keras.layers.Layer):
             (-1, 9, 9, 9),
         )
 
+    @tf.function
     def call(self, x):
 
         # suptract maximum for numerical stability

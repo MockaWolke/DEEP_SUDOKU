@@ -6,6 +6,10 @@
 
 This repo holds different utilities for combining deep learning and sudoku.
 
+Our detailed research and our gained insights are presented in [this paper](paper/Paper.pdf).
+
+Our Presentation Video is can be viewed [here.](https://www.youtube.com/watch?v=mfr4qaDYQM0)
+
 ### Sudoku Generation & Optimization
 
 - Rapid Sudoku Generation: Leveraging the methodology from brotskydotcom's sudoku-generator, our deepsudoku/generate.py facilitates fast generation of Sudoku puzzles across varying levels of difficulty.
@@ -46,9 +50,6 @@ For complete transparency and reproducibility:
 
 - All experiment codes, TensorBoard logs, hyperparameter configurations, and actual bash scripts are provided.
 - Results were compiled, analyzed, and can be reviewed in the `stats` and `analysis` directories.
-
-Research Paper: Further details on our experiments are documented in our paper, the link for which will be provided soon.
-
 
 
 
